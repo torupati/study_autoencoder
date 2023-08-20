@@ -17,6 +17,10 @@ name = "pytorch"
 url = "https://download.pytorch.org/whl/cpu"
 priority = "explicit"
 
+
+[tool.poetry.group.dev.dependencies]
+notebook = "^7.0.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

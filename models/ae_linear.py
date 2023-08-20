@@ -17,15 +17,13 @@ import torch.distributions
 import torchvision
 import numpy as np
 import pickle
-import matplotlib.pyplot as plt; plt.rcParams['figure.dpi'] = 200
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
+import matplotlib.pyplot as plt;
 
 
 class Encoder(nn.Module):
     def __init__(self, latent_dims):
         super(Encoder, self).__init__()
-        self.linear1 = nn.Linear(784, 512)
+        self.linear1 = nn.Linear(784, 512, bias=True)
         self.linear2 = nn.Linear(512, latent_dims)
 
     def forward(self, x):
@@ -45,7 +43,7 @@ class Decoder(nn.Module):
         return z.reshape((-1, 1, 28, 28))
 
 class Autoencoder(nn.Module):
-    def __init__(self, latent_dims):
+    def __init__(self, latent_dims:int):
         super(Autoencoder, self).__init__()
         self.encoder = Encoder(latent_dims)
         self.decoder = Decoder(latent_dims)
@@ -71,14 +69,11 @@ def train(autoencoder, data, epochs=20):
             pickle.dump(cp, cp_file)
     return autoencoder
 
-data = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('./data',
-               transform=torchvision.transforms.ToTensor(),
-               download=True),
-        batch_size=128,
-        shuffle=True)
 
 def plot_latent(autoencoder, data, num_batches=100):
+    """
+    Plot latent variable z in plane (1st and 2nd dim by default)
+    """
     for i, (x, y) in enumerate(data):
         z = autoencoder.encoder(x.to(device))
         z = z.to('cpu').detach().numpy()
@@ -119,10 +114,6 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12):
 
 
 
-latent_dims = 2
-#train_autoencoder(data, latent_dim)
-
-
 class VariationalEncoder(nn.Module):
     def __init__(self, latent_dims):
         super(VariationalEncoder, self).__init__()
@@ -155,9 +146,10 @@ class VariationalAutoencoder(nn.Module):
         z = self.encoder(x)
         return self.decoder(z)
 
-def train2(autoencoder, data, epochs=20):
+def train_vae(autoencoder, data, epochs=20):
     opt = torch.optim.Adam(autoencoder.parameters())
     for epoch in range(epochs):
+        print('epoch={i}'.format(i=epoch))
         for x, y in data:
             x = x.to(device) # GPU
             opt.zero_grad()
@@ -168,14 +160,34 @@ def train2(autoencoder, data, epochs=20):
     return autoencoder
 
 
-vae = VariationalAutoencoder(latent_dims).to(device) # GPU
-vae = train(vae, data)
+if __name__ == "__main__":
+    #plt.rcParams['figure.dpi'] = 200
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(device)
 
-plot_latent(vae, data)
-plt.savefig('vae.png')
-plt.close()
-plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
-plt.savefig('vae2.png')
+    do_train = True
+
+    # Prepare dataset (MNIST) and dataloader
+    dataset = torchvision.datasets.MNIST('./data',
+            transform=torchvision.transforms.ToTensor(),
+            download=True)
+    print(dataset)
+    data = torch.utils.data.DataLoader(dataset, batch_size=128, shuffle=True)
+
+    # Prepare Model.
+    latent_dims = 2 # 2
+    #train_autoencoder(data, latent_dim)
+
+    vae = VariationalAutoencoder(latent_dims).to(device)
+
+    if do_train:
+        vae = train_vae(vae, data)
+
+    plot_latent(vae, data)
+    plt.savefig('vae_2d.png')
+    plt.close()
+    plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
+    plt.savefig('vae2.png')
 
 #
 # https://avandekleut.github.io/vae/

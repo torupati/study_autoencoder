@@ -13,7 +13,7 @@ import torchvision.transforms as transforms
 
 class Autoencoder(nn.Module):
     def __init__(self):
-        super(Autoencoder,self).__init__()
+        super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
             # 28 x 28
             nn.Conv2d(1, 4, kernel_size=5),

@@ -6,7 +6,6 @@ https://avandekleut.github.io/vae/
 
 todo:
 https://pytorch.org/docs/stable/notes/multiprocessing.html
-
 """
 
 import torch; torch.manual_seed(0)
@@ -189,6 +188,3 @@ if __name__ == "__main__":
     plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
     plt.savefig('vae2.png')
 
-#
-# https://avandekleut.github.io/vae/
-#

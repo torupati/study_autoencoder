@@ -12,3 +12,15 @@ $ poetry install
 After all modules are installed, you can run the code.
 
 $ poetry run python autoencoder.py
+
+
+# References
+
+
+- https://avandekleut.github.io/vae/
+
+### programming memo
+
+- how to save and load model:
+  https://pytorch.org/tutorials/beginner/basics/saveloadrun_tutorial.html
+

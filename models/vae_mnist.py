@@ -155,7 +155,6 @@ if __name__ == "__main__":
 
     plot_latent(vae, data)
     plt.savefig('vae_2d.png')
-    plt.close()
     plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
     plt.savefig('vae2.png')
 

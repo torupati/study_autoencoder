@@ -24,3 +24,6 @@ $ poetry run python autoencoder.py
 - how to save and load model:
   https://pytorch.org/tutorials/beginner/basics/saveloadrun_tutorial.html
 
+- MNIST Dataset
+  https://pytorch.org/vision/0.15/datasets.html
+  

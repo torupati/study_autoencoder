@@ -46,10 +46,16 @@ class Autoencoder(nn.Module):
         super(Autoencoder, self).__init__()
         self.encoder = Encoder(latent_dims)
         self.decoder = Decoder(latent_dims)
+        self._latent_dims = latent_dims
 
     def forward(self, x):
         z = self.encoder(x)
         return self.decoder(z)
+
+    @property
+    def latent_dims(self) -> int:
+        return self._latent_dims
+
 
 def train(autoencoder, data, epochs=20):
     opt = torch.optim.Adam(autoencoder.parameters())
@@ -62,10 +68,17 @@ def train(autoencoder, data, epochs=20):
             loss.backward()
             opt.step()
         print(epoch, torch.norm(loss))
-        ckfile = 'checkpoint_epoch{i:02d}.ckpt'.format(i=epoch)
-        with open(ckfile, "wb") as cp_file:
-            cp = dict(autoencoder = autoencoder)
-            pickle.dump(cp, cp_file)
+        if epoch % 10 == 0 and save_model_train:
+            _filename = f"ckpt_mnist_autoencoder_train_epoch{epoch:03d}.pth"
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': autoencoder.state_dict(),
+                'optimizer_state_dict': opt.state_dict(),
+                'latent_dims': autoencoder.latent_dims, 
+                'loss': total_loss},
+                _filename)
+            logger.info('save log file %s', _filename)
+
     return autoencoder
 
 

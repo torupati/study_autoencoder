@@ -12,6 +12,7 @@ torch = {version = "^2.0.1+cpu", source = "pytorch"}
 torchvision = {version = "^0.15.2+cpu", source = "pytorch"}
 matplotlib = "^3.7.2"
 tqdm = "^4.66.1"
+opencv-python = "^4.8.0.76"
 
 
 [[tool.poetry.source]]

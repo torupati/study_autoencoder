@@ -1,11 +1,6 @@
 """
-This is based on (almost copied from) this awsome page.
-
-https://avandekleut.github.io/vae/
-
-
-todo:
-https://pytorch.org/docs/stable/notes/multiprocessing.html
+Autoencoder for MNIST dataset
+(C) torupati laboratory
 """
 
 import torch; torch.manual_seed(0)
@@ -16,8 +11,18 @@ import torch.distributions
 import torchvision
 import numpy as np
 import pickle
-import matplotlib.pyplot as plt;
-
+import matplotlib.pyplot as plt
+from os import path
+from tqdm import tqdm
+import argparse
+import logging
+logger = logging.getLogger(__name__)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s',
+                    handlers=[logging.FileHandler("vae_mnist.log", mode='w'),
+                              stream_handler])
 
 class Encoder(nn.Module):
     def __init__(self, latent_dims):
@@ -44,9 +49,10 @@ class Decoder(nn.Module):
 class Autoencoder(nn.Module):
     def __init__(self, latent_dims:int):
         super(Autoencoder, self).__init__()
+        print('init latent_dims=', latent_dims)
+        self._latent_dims = latent_dims
         self.encoder = Encoder(latent_dims)
         self.decoder = Decoder(latent_dims)
-        self._latent_dims = latent_dims
 
     def forward(self, x):
         z = self.encoder(x)
@@ -57,25 +63,32 @@ class Autoencoder(nn.Module):
         return self._latent_dims
 
 
-def train(autoencoder, data, epochs=20):
+def train(autoencoder, data, epochs=20, start_epoch:int = 0):
+    _device = next(autoencoder.parameters()).device.type
     opt = torch.optim.Adam(autoencoder.parameters())
     for epoch in range(epochs):
-        for x, y in data:
-            x = x.to(device) # GPU
+        train_loss, num_samples = 0.0, 0
+        tbar = tqdm(data)
+        for batch_idx, (x, y) in enumerate(tbar):
+            x = x.to(_device) # GPU
             opt.zero_grad()
             x_hat = autoencoder(x)
             loss = ((x - x_hat)**2).sum()
             loss.backward()
             opt.step()
-        print(epoch, torch.norm(loss))
-        if epoch % 10 == 0 and save_model_train:
+
+            train_loss += loss.item()
+            num_samples += 1
+            error_str = 'Epoch: %d, loss=%.4f' % (epoch, train_loss / (batch_idx + 1))
+            tbar.set_description(error_str)
+        if epoch % 10 == 0:
             _filename = f"ckpt_mnist_autoencoder_train_epoch{epoch:03d}.pth"
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': autoencoder.state_dict(),
                 'optimizer_state_dict': opt.state_dict(),
                 'latent_dims': autoencoder.latent_dims, 
-                'loss': total_loss},
+                'loss': train_loss},
                 _filename)
             logger.info('save log file %s', _filename)
 
@@ -94,110 +107,63 @@ def plot_latent(autoencoder, data, num_batches=100):
             plt.colorbar()
             break
 
-def train_autoencoder(data, latent_dim:int):
-    autoencoder = Autoencoder(latent_dims).to(device) # GPU
-    autoencoder = train(autoencoder, data)
 
-    plot_latent(autoencoder, data)
-    plt.savefig('out.png')
-
-    plot_reconstructed(autoencoder)
-    plt.savefig('autoencoder_figures.png')
-
-
-#with open("checkpoint_name.pkl", "wb") as cp_file:
-#    cp = dict(autoencoder = autoencoder)
-#    pickle.dump(cp, cp_file)
-
-def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12):
-    w = 28
-    img = np.zeros((n*w, n*w))
-    for i, y in enumerate(np.linspace(*r1, n)):
-        for j, x in enumerate(np.linspace(*r0, n)):
-            z = torch.Tensor([[x, y]]).to(device)
-            x_hat = autoencoder.decoder(z)
-            x_hat = x_hat.reshape(28, 28).to('cpu').detach().numpy()
-            img[(n-1-i)*w:(n-1-i+1)*w, j*w:(j+1)*w] = x_hat
-    plt.imshow(img, extent=[*r0, *r1])
-#
-# multi-processing
-# https://pytorch.org/docs/stable/notes/multiprocessing.html
-#
-
-
-
-class VariationalEncoder(nn.Module):
-    def __init__(self, latent_dims):
-        super(VariationalEncoder, self).__init__()
-        self.linear1 = nn.Linear(784, 512)
-        self.linear2 = nn.Linear(512, latent_dims)
-        self.linear3 = nn.Linear(512, latent_dims)
-
-        self.N = torch.distributions.Normal(0, 1)
-        if torch.cuda.is_available():
-            self.N.loc = self.N.loc.cuda() # hack to get sampling on the GPU
-            self.N.scale = self.N.scale.cuda()
-        self.kl = 0
-
-    def forward(self, x):
-        x = torch.flatten(x, start_dim=1)
-        x = F.relu(self.linear1(x))
-        mu =  self.linear2(x)
-        sigma = torch.exp(self.linear3(x))
-        z = mu + sigma*self.N.sample(mu.shape)
-        self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
-        return z
-
-class VariationalAutoencoder(nn.Module):
-    def __init__(self, latent_dims):
-        super(VariationalAutoencoder, self).__init__()
-        self.encoder = VariationalEncoder(latent_dims)
-        self.decoder = Decoder(latent_dims)
-
-    def forward(self, x):
-        z = self.encoder(x)
-        return self.decoder(z)
-
-def train_vae(autoencoder, data, epochs=20):
-    opt = torch.optim.Adam(autoencoder.parameters())
-    for epoch in range(epochs):
-        print('epoch={i}'.format(i=epoch))
-        for x, y in data:
-            x = x.to(device) # GPU
-            opt.zero_grad()
-            x_hat = autoencoder(x)
-            loss = ((x - x_hat)**2).sum() + autoencoder.encoder.kl
-            loss.backward()
-            opt.step()
-    return autoencoder
-
-
-if __name__ == "__main__":
-    #plt.rcParams['figure.dpi'] = 200
+def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(device)
-
-    do_train = True
+    logger.info('device=%s is used for pytorch', device)
 
     # Prepare dataset (MNIST) and dataloader
-    dataset = torchvision.datasets.MNIST('./data',
+    dataset = torchvision.datasets.MNIST(args.dataset_dir,
             transform=torchvision.transforms.ToTensor(),
             download=True)
-    print(dataset)
-    data = torch.utils.data.DataLoader(dataset, batch_size=128, shuffle=True)
+    logger.debug('prepare MNIST dataset from torchvision')
+    logger.debug('%s', dataset)
+    data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    logger.info('data logader. batch size={i}'.format(i=args.batch_size))
 
-    # Prepare Model.
-    latent_dims = 2 # 2
-    #train_autoencoder(data, latent_dim)
+    if path.isfile(args.ckpt):
+        ckpt_file = args.ckpt
+        logger.info('load from checkpoint: %s', ckpt_file)
+        ckpts = torch.load(ckpt_file)
+        print(ckpts.keys())
+        _dim = ckpts['latent_dims']
+        ae = Autoencoder(_dim)
+        ae.load_state_dict(ckpts['model_state_dict'])
+        _cur_epoch = ckpts['epoch']
+        if args.resume:
+            vae = train(vae, data, args.num_epoch, _cur_epoch)
+    else:
+        latent_dims = args.latent_dims
+        logger.info('initialize autoencoder, latent dimension=%d', latent_dims)
+        ae = Autoencoder(latent_dims).to(device)
+        ae = train(ae, data, args.num_epoch, 0)
 
-    vae = VariationalAutoencoder(latent_dims).to(device)
+    pngfile = 'ae_latent_each_digit.png'
+    fig = plot_latent_each_digit(vae, data)
+    fig.savefig(pngfile)
+    logger.info('save {0}'.format(pngfile))
 
-    if do_train:
-        vae = train_vae(vae, data)
+    fig = plot_latent(vae, data, 1000)
+    fig.savefig('ae_latent_space_projection.png')
 
-    plot_latent(vae, data)
-    plt.savefig('vae_2d.png')
-    plt.close()
-    plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
-    plt.savefig('vae2.png')
+    fig = plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
+    fig.savefig('ae_reconstructed.png')
+
+
+def prepare_argparse():
+    parser = argparse.ArgumentParser(description='PyTorch Variational Autoencoder for MNIST dataset')
+    # training condition
+    parser.add_argument('--dataset_dir', default='./data/', type=str, help='MNIST dataset directory')
+    parser.add_argument('--batch_size', default=128, type=int, help='batch size of data loader')
+    parser.add_argument('--num_epoch', '-n', default=40, type=int, help='number of epoch for training')
+    # model initialization/loading
+    parser.add_argument('--latent_dims', '-d', default=2, type=int, help='Latent variable dimension. Ignored when pretrained model is loaded')
+    parser.add_argument('--resume',  '-r', action='store_true', help='resume from checkpoint')
+    parser.add_argument('--ckpt', '-c', default='', type=str, help='checkpoint file path')
+    return parser
+
+if __name__ == "__main__":
+    parser = prepare_argparse()
+    args = parser.parse_args()
+    main(args)
 

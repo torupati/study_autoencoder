@@ -1,11 +1,8 @@
 """
+Variational Autoencoder for MNIST dataset
+
 This is based on (almost copied from) this awsome page.
-
 https://avandekleut.github.io/vae/
-
-
-todo:
-https://pytorch.org/docs/stable/notes/multiprocessing.html
 """
 import numpy as np
 from os import path
@@ -20,19 +17,17 @@ import torchvision
 from tqdm import tqdm
 
 from ae_mnist import Decoder
-from logging import getLogger, basicConfig, INFO
+import argparse
 
 import matplotlib.pyplot as plt;
 
-
-logger = getLogger(__name__)
 import logging
+logger = logging.getLogger(__name__)
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
-
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s',
-                    handlers=[logging.FileHandler("my_log.log", mode='w'),
+                    handlers=[logging.FileHandler("vae_mnist.log", mode='w'),
                               stream_handler])
 
 def plot_latent(autoencoder, data, num_lim=100):
@@ -235,10 +230,7 @@ def main(args):
     fig = plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
     fig.savefig('vae_reconstructed.png')
 
-
-
-if __name__ == "__main__":
-    import argparse
+def prepare_argparse():
     parser = argparse.ArgumentParser(description='PyTorch Variational Autoencoder for MNIST dataset')
     # training condition
     parser.add_argument('--dataset_dir', default='./data/', type=str, help='MNIST dataset directory')
@@ -248,6 +240,9 @@ if __name__ == "__main__":
     parser.add_argument('--latent_dims', '-d', default=2, type=int, help='Latent variable dimension. Ignored when pretrained model is loaded')
     parser.add_argument('--resume',  '-r', action='store_true', help='resume from checkpoint')
     parser.add_argument('--ckpt', '-c', default='', type=str, help='checkpoint file path')
+    return parser
 
+if __name__ == "__main__":
+    parser = prepare_argparse()
     args = parser.parse_args()
     main(args)

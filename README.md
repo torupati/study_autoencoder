@@ -1,5 +1,13 @@
 # study_autoencoder
 
+These code are prepared for my learning of variational autoencoder.
+Code are work with MNIST dataset and specialised for this dataset.
+
+For comparison, autoencoder is also prepared. Each sample of MNIST can be converted to PNG file.
+
+
+### Usage 
+
 To start, please prepare python 3.9.17 because this version is defined in pyproject.toml.
 
 ```
@@ -18,7 +26,7 @@ $ poetry run python models/vae_mnist.py
 ```
 
 
-# References
+## References
 
 
 - https://avandekleut.github.io/vae/

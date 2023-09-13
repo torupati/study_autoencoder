@@ -28,8 +28,14 @@ $ poetry run python models/vae_mnist.py
 
 ## References
 
+### VAE
 
 - https://avandekleut.github.io/vae/
+
+### MNIST
+
+https://scikit-learn.org/stable/auto_examples/classification/plot_digits_classification.html
+
 
 ### programming memo (TODO)
 

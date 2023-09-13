@@ -149,8 +149,8 @@ def train_vae(autoencoder, data, epochs=20, start_epoch:int = 0, save_model_trai
     """_summary_
 
     Args:
-        autoencoder (_type_): _description_
-        data (_type_): _description_
+        autoencoder (VariationalAutoencoder): _description_
+        data (np.array): _description_
         epochs (int, optional): _description_. Defaults to 20.
         start_epoch (int, optional): _description_. Defaults to 0.
         save_model_train (bool, optional): _description_. Defaults to False.

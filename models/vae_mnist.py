@@ -46,10 +46,10 @@ def plot_latent(autoencoder, data, num_lim=100):
     ax.grid(True)
     ax.set_xlabel(r'$z_1$')
     ax.set_ylabel(r'$z_2$')
-    fig.colorbar(im, ax=ax)
+    #fig.colorbar(im, ax=ax)
     return fig
 
-def plot_latent_each_digit(autoencoder, data):
+def plot_latent_each_digit0(autoencoder, data):
     """
     Plot latent variable z in plane (1st and 2nd dim by default)
     """
@@ -74,8 +74,42 @@ def plot_latent_each_digit(autoencoder, data):
         ax[ax_i, ax_j].set_title('{0}'.format(y_digit))
     return fig
 
+def plot_latent_each_digit(ax, autoencoder, dataset, title_str = ""):
+    """
+    Plot latent variable z in plane (1st and 2nd dim by default)
+    """
+    _device = next(autoencoder.parameters()).device.type
+    #fig.suptitle('Sample Projection on Latent Space')
+    out_data = {'digit_lagel': [], 'z': []}
+    for y_digit in range(0, 10):
+        data = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False)
+        print('digit ', y_digit)
+        z_vals = []
+        for i, (x, y) in enumerate(data):
+            x = x[y==y_digit]
+            y = y[y==y_digit]
+            z = autoencoder.encoder(x.to(_device))
+            z = z.to('cpu').detach().numpy()
+            if len(z_vals) == 0:
+                z_vals = z
+            else:
+                z_vals = np.concatenate([z_vals, z])
+            if len(z_vals) > 300: 
+                break
+        ax.plot(z_vals[:, 0], z_vals[:, 1], '.', label = '{0}'.format(y_digit))
+    ax.grid(True)
+    ax.legend()
+    ax.set_xlim([-3, 3])
+    ax.set_ylim([-3, 3])
+    ax.set_aspect('equal')
+    ax.set_xlabel(r'$z_1$')
+    ax.set_ylabel(r'$z_2$')
+    if len(title_str) > 0:
+        ax.set_title(title_str)
+    return ax
 
-def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
+
+def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
     """Plot reconstructed image x from z on grid
 
     Args:
@@ -84,7 +118,6 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
         r1 (tuple, optional): range of latent variable z2. Defaults to (-10, 5).
         num_img (int, optional): _description_. Defaults to 12.
     """
-    fig, ax = plt.subplots(1, 1)
     w = 28
     img = np.zeros((num_img*w, num_img*w))
     _device = next(autoencoder.parameters()).device.type
@@ -92,12 +125,12 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
         for j, x in enumerate(np.linspace(*r0, num_img)):
             z = torch.Tensor([[x, y]]).to(_device)
             x_hat = autoencoder.decoder(z)
-            x_hat = x_hat.reshape(28, 28).to('cpu').detach().numpy()
+            x_hat = x_hat.reshape(w, w).to('cpu').detach().numpy()
             img[(num_img-1-i)*w:(num_img-1-i+1)*w, j*w:(j+1)*w] = x_hat
     im = ax.imshow(img, extent=[*r0, *r1])
     ax.set_xlabel(r'$z_1$')
-    ax.set_xlabel(r'$z_1$')
-    return fig
+    ax.set_ylabel(r'$z_2$')
+    return ax
 
 # multi-processing
 # https://pytorch.org/docs/stable/notes/multiprocessing.html
@@ -146,17 +179,17 @@ class VariationalAutoencoder(nn.Module):
         return self._latent_dims
 
 def train_vae(autoencoder, data, epochs=20, start_epoch:int = 0, save_model_train:bool = False):
-    """_summary_
+    """Training VAE from given data
 
     Args:
-        autoencoder (VariationalAutoencoder): _description_
-        data (np.array): _description_
+        autoencoder (VariationalAutoencoder): instance of VAE
+        data (torch.DataLoader): pytorch data loader
         epochs (int, optional): _description_. Defaults to 20.
         start_epoch (int, optional): _description_. Defaults to 0.
         save_model_train (bool, optional): _description_. Defaults to False.
 
     Returns:
-        _type_: _description_
+        _type_: VAE
     """
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     opt = torch.optim.Adam(autoencoder.parameters())
@@ -211,6 +244,7 @@ def main(args):
         vae = VariationalAutoencoder(_dim)
         vae.load_state_dict(ckpts['model_state_dict'])
         _cur_epoch = ckpts['epoch']
+        logger.info('resume: %s', args.resume)
         if args.resume:
             vae = train_vae(vae, data, args.num_epoch, _cur_epoch, True)
     else:
@@ -219,15 +253,18 @@ def main(args):
         vae = VariationalAutoencoder(latent_dims).to(device)
         vae = train_vae(vae, data, args.num_epoch, 0, True)
 
+    
     pngfile = 'vae_latent_each_digit.png'
-    fig = plot_latent_each_digit(vae, data)
+    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+    ax = plot_latent_each_digit(ax, vae, dataset)
     fig.savefig(pngfile)
     logger.info('save {0}'.format(pngfile))
 
     fig = plot_latent(vae, data, 1000)
     fig.savefig('vae_latent_space_projection.png')
 
-    fig = plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
+    fig, ax = plt.subplots(1, 1, figsize=(8,8))
+    ax = plot_reconstructed(ax, vae, r0=(-3, 3), r1=(-3, 3))
     fig.savefig('vae_reconstructed.png')
 
 def prepare_argparse():

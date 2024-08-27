@@ -47,8 +47,20 @@ https://docs.github.com/ja/get-started/getting-started-with-git/managing-remote-
 
 ## Pyenv and Poetry
 
+My environment is using python 3.12.3.
+
+```
+$ python -V
+Python 3.12.3
+```
+
+Then, I setupt as follows.
+
 ```
 $ pyenv local 3.12
-$ poetry shell
 $ poetry update
+$ poetry install
+$ poetry shell
 ```
+
+To setup path for python moduls, "install" is necessary.

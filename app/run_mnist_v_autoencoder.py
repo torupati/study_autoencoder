@@ -20,7 +20,8 @@ import argparse
 
 import matplotlib.pyplot as plt;
 
-from models.v_autoecoder import VariationalAutoencoder, train_vae
+from models.v_autoencoder import VariationalAutoencoder, train_vae
+from models.mnist_utils import plot_latent_each_digit, plot_latent, plot_reconstructed
 
 import logging
 logger = logging.getLogger(__name__)

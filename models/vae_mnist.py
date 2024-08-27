@@ -16,7 +16,6 @@ import torch.distributions
 import torchvision
 from tqdm import tqdm
 
-from ae_mnist import Decoder
 import argparse
 
 import matplotlib.pyplot as plt;
@@ -102,38 +101,54 @@ def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
 # multi-processing
 # https://pytorch.org/docs/stable/notes/multiprocessing.html
 
-class VariationalEncoder(nn.Module):
-    def __init__(self, latent_dims):
-        super(VariationalEncoder, self).__init__()
-        self.linear1 = nn.Linear(784, 512)
-        self.linear2 = nn.Linear(512, latent_dims)
-        self.linear3 = nn.Linear(512, latent_dims)
-
-        self.N = torch.distributions.Normal(0, 1)
-        if torch.cuda.is_available():
-            self.N.loc = self.N.loc.cuda() # hack to get sampling on the GPU
-            self.N.scale = self.N.scale.cuda()
-        self.kl = 0
-
-    def forward(self, x):
-        x = torch.flatten(x, start_dim=1)
-        x = F.relu(self.linear1(x))
-        mu =  self.linear2(x)
-        sigma = torch.exp(self.linear3(x))
-        z = mu + sigma*self.N.sample(mu.shape)
-        self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
-        return z
 
 class VariationalAutoencoder(nn.Module):
-    def __init__(self, latent_dims:int):
+
+    class Encoder(nn.Module):
+        def __init__(self, latent_dims:int, obs_dim:int):
+            super(VariationalAutoencoder.Encoder, self).__init__()
+            self.linear1 = nn.Linear(obs_dim, 512)
+            self.linear2 = nn.Linear(512, latent_dims)
+            self.linear3 = nn.Linear(512, latent_dims)
+
+            self.N = torch.distributions.Normal(0, 1)
+            if torch.cuda.is_available():
+                self.N.loc = self.N.loc.cuda() # hack to get sampling on the GPU
+                self.N.scale = self.N.scale.cuda()
+            self.kl = 0
+
+        def forward(self, x):
+            x = torch.flatten(x, start_dim=1)
+            x = F.relu(self.linear1(x))
+            mu =  self.linear2(x)
+            sigma = torch.exp(self.linear3(x))
+            z = mu + sigma*self.N.sample(mu.shape)
+            self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
+            return z
+
+    @staticmethod
+    class Decoder(nn.Module):
+        def __init__(self, latent_dims:int, obs_dim:int):
+            super(VariationalAutoencoder.Decoder, self).__init__()
+            self.linear1 = nn.Linear(latent_dims, 512)
+            self.linear2 = nn.Linear(512, obs_dim)
+
+        def forward(self, z):
+            z = F.relu(self.linear1(z))
+            z = torch.sigmoid(self.linear2(z))
+            return z
+        #return z.reshape((-1, 1, 28, 28))
+
+    def __init__(self, latent_dims:int, obs_dim:int):
         super(VariationalAutoencoder, self).__init__()
-        self.encoder = VariationalEncoder(latent_dims)
-        self.decoder = Decoder(latent_dims)
+        self.encoder = VariationalAutoencoder.Encoder(latent_dims, obs_dim)
+        self.decoder = VariationalAutoencoder.Decoder(latent_dims, obs_dim)
         self._latent_dims = latent_dims
 
     def forward(self, x):
         z = self.encoder(x)
-        return self.decoder(z)
+        x_hat = self.decoder(z)
+        return x_hat
 
     @property
     def latent_dims(self) -> int:
@@ -165,6 +180,7 @@ def train_vae(autoencoder, data, epochs=20, start_epoch:int = 0, save_model_trai
         for batch_idx, (x, y) in enumerate(tbar):
             x = x.to(device) # GPU
             opt.zero_grad()
+            x = torch.flatten(x, start_dim=1)
             x_hat = autoencoder(x)
             loss = ((x - x_hat)**2).sum() + autoencoder.encoder.kl
             loss.backward()
@@ -196,6 +212,7 @@ def main(args):
     dataset = torchvision.datasets.MNIST(args.dataset_dir,
             transform=torchvision.transforms.ToTensor(),
             download=True)
+    obs_dim = 28*28
     logger.debug('prepare MNIST dataset from torchvision')
     logger.debug('%s', dataset)
     data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
@@ -207,7 +224,7 @@ def main(args):
         ckpts = torch.load(ckpt_file)
         print(ckpts.keys())
         _dim = ckpts['latent_dims']
-        vae = VariationalAutoencoder(_dim)
+        vae = VariationalAutoencoder(_dim, obs_dim)
         vae.load_state_dict(ckpts['model_state_dict'])
         _cur_epoch = ckpts['epoch']
         logger.info('resume: %s', args.resume)
@@ -216,7 +233,7 @@ def main(args):
     else:
         latent_dims = args.latent_dims
         logger.debug('latent dimension=%d', latent_dims)
-        vae = VariationalAutoencoder(latent_dims).to(device)
+        vae = VariationalAutoencoder(latent_dims, obs_dim).to(device)
         vae = train_vae(vae, data, args.num_epoch, 0, True)
 
     

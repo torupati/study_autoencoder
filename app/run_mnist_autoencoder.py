@@ -1,23 +1,21 @@
 """
 Autoencoder for MNIST dataset
 """
+from os import path
+import argparse
+import logging
 
 import torch
 torch.manual_seed(0)
 import torch.utils
-import torch.distributions
 import torchvision
 import numpy as np
-import pickle
 import matplotlib.pyplot as plt
-from os import path
 from tqdm import tqdm
 
 from models.autoencoder import Autoencoder, train
 from models.mnist_utils import plot_latent_each_digit, plot_latent, plot_reconstructed
 
-import argparse
-import logging
 logger = logging.getLogger(__name__)
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
@@ -25,7 +23,6 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s',
                     handlers=[logging.FileHandler("vae_mnist.log", mode='a'),
                               stream_handler])
-
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

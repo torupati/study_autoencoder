@@ -45,7 +45,6 @@ class Autoencoder(nn.Module):
             return z
         #return z.reshape((-1, 1, 28, 28))
 
-
     def __init__(self, latent_dims:int, obs_dim:int):
         super(Autoencoder, self).__init__()
         print(f'init {latent_dims=} {obs_dim=}')

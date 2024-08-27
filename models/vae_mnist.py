@@ -74,39 +74,6 @@ def plot_latent_each_digit0(autoencoder, data):
         ax[ax_i, ax_j].set_title('{0}'.format(y_digit))
     return fig
 
-def plot_latent_each_digit(ax, autoencoder, dataset, title_str = ""):
-    """
-    Plot latent variable z in plane (1st and 2nd dim by default)
-    """
-    _device = next(autoencoder.parameters()).device.type
-    #fig.suptitle('Sample Projection on Latent Space')
-    out_data = {'digit_lagel': [], 'z': []}
-    for y_digit in range(0, 10):
-        data = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False)
-        print('digit ', y_digit)
-        z_vals = []
-        for i, (x, y) in enumerate(data):
-            x = x[y==y_digit]
-            y = y[y==y_digit]
-            z = autoencoder.encoder(x.to(_device))
-            z = z.to('cpu').detach().numpy()
-            if len(z_vals) == 0:
-                z_vals = z
-            else:
-                z_vals = np.concatenate([z_vals, z])
-            if len(z_vals) > 300: 
-                break
-        ax.plot(z_vals[:, 0], z_vals[:, 1], '.', label = '{0}'.format(y_digit))
-    ax.grid(True)
-    ax.legend()
-    ax.set_xlim([-3, 3])
-    ax.set_ylim([-3, 3])
-    ax.set_aspect('equal')
-    ax.set_xlabel(r'$z_1$')
-    ax.set_ylabel(r'$z_2$')
-    if len(title_str) > 0:
-        ax.set_title(title_str)
-    return ax
 
 
 def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
@@ -134,7 +101,6 @@ def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
 
 # multi-processing
 # https://pytorch.org/docs/stable/notes/multiprocessing.html
-#
 
 class VariationalEncoder(nn.Module):
     def __init__(self, latent_dims):

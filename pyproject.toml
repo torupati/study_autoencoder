@@ -6,6 +6,10 @@ authors = ["torupa"]
 license = "MIT"
 readme = "README.md"
 
+packages = [
+    { include = "models", from = "." },
+]
+
 [tool.poetry.dependencies]
 python = "^3.12"
 torch = {version = "^2.4.0+cpu", source = "pytorch"}
@@ -19,6 +23,10 @@ opencv-python = "^4.10.0.84"
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cpu"
 priority = "explicit"
+
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.26.0"
 
 [build-system]
 requires = ["poetry-core"]

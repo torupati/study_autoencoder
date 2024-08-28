@@ -25,6 +25,20 @@ class VariationalAutoencoder(nn.Module):
             self.kl = 0
 
         def forward(self, x):
+            """
+            Args
+            ----
+            x(torch.Tensor): input data
+
+            Returns
+            -------
+            d(dict): latent variable z and model parameter of p(z|x)
+            'z', 'mu', and 'sigma' is included. These are torch.Tensor instances.
+
+            Note
+            ----
+            This module returns dictionary instead of torch.Tensor.
+            """
             x = torch.flatten(x, start_dim=1)
             x = F.relu(self.linear1(x))
             mu =  self.linear2(x)

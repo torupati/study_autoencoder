@@ -24,7 +24,12 @@ def plot_latent_each_digit(ax, autoencoder, dataset, title_str = ""):
             x = x[y==y_digit]
             y = y[y==y_digit]
             x = torch.flatten(x, start_dim=1)
-            z = autoencoder.encoder(x.to(_device))
+            _ret = autoencoder.encoder(x.to(_device))
+            if isinstance(_ret, dict):
+                z = _ret['z']
+                print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
+            else:
+                z = _ret
             z = z.to('cpu').detach().numpy()
             if len(z_vals) == 0:
                 z_vals = z
@@ -52,7 +57,12 @@ def plot_latent(ax, autoencoder, dataset, num_lim=100):
     ax.set_title('Sample Projection on Latent Space')
     for i, (x, y) in enumerate(dataset):
         x = torch.flatten(x, start_dim=1)
-        z = autoencoder.encoder(x.to(_device))
+        _ret = autoencoder.encoder(x.to(_device))
+        if isinstance(_ret, dict):
+            z = _ret['z']
+            print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
+        else:
+            z = _ret
         z = z.to('cpu').detach().numpy()
         im = ax.scatter(z[:, 0], z[:, 1], c=y, cmap='tab10')
         if i > num_lim:
@@ -63,11 +73,14 @@ def plot_latent(ax, autoencoder, dataset, num_lim=100):
     #fig.colorbar(im, ax=ax)
     return ax
 
+
 def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
     """Plot reconstructed image x from z on grid
 
-    Args:
-        autoencoder (_type_): _description_
+    Args
+    ----
+        ax (): axes in matplot figure.
+        autoencoder (AutoEncoder or VariationalAutoEncoder): _description_
         r0 (tuple, optional): range of latent variable z1. Defaults to (-5, 10).
         r1 (tuple, optional): range of latent variable z2. Defaults to (-10, 5).
         num_img (int, optional): _description_. Defaults to 12.

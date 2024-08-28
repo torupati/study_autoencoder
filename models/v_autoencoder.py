@@ -18,7 +18,7 @@ class VariationalAutoencoder(nn.Module):
             self.linear2 = nn.Linear(512, latent_dims)
             self.linear3 = nn.Linear(512, latent_dims)
 
-            self.N = torch.distributions.Normal(0, 1)
+            self.N = torch.distributions.Normal(0, 1) # Gaussian Distribution for additive noise
             if torch.cuda.is_available():
                 self.N.loc = self.N.loc.cuda() # hack to get sampling on the GPU
                 self.N.scale = self.N.scale.cuda()
@@ -31,7 +31,7 @@ class VariationalAutoencoder(nn.Module):
             sigma = torch.exp(self.linear3(x))
             z = mu + sigma*self.N.sample(mu.shape)
             self.kl = (sigma**2 + mu**2 - torch.log(sigma) - 1/2).sum()
-            return z
+            return {'z': z, 'mu': mu, 'sigma': sigma}
 
     @staticmethod
     class Decoder(nn.Module):
@@ -53,7 +53,8 @@ class VariationalAutoencoder(nn.Module):
         self._latent_dims = latent_dims
 
     def forward(self, x):
-        z = self.encoder(x)
+        _ret = self.encoder(x)
+        z = _ret['z']
         x_hat = self.decoder(z)
         return x_hat
 

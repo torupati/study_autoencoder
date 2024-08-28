@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
+
 
 class Autoencoder(nn.Module):
     """

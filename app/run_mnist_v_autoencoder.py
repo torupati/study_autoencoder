@@ -4,8 +4,10 @@ Variational Autoencoder for MNIST dataset
 This is based on (almost copied from) this awsome page.
 https://avandekleut.github.io/vae/
 """
-import numpy as np
+from pathlib import Path
 from os import path
+
+import numpy as np
 
 import torch;
 torch.manual_seed(0)
@@ -14,7 +16,6 @@ import torch.nn.functional as F
 import torch.utils
 import torch.distributions
 import torchvision
-from tqdm import tqdm
 
 import argparse
 
@@ -31,25 +32,6 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s',
                     handlers=[logging.FileHandler("vae_mnist.log", mode='w'),
                               stream_handler])
-
-def plot_latent(autoencoder, data, num_lim=100):
-    """
-    Plot latent variable z in plane (1st and 2nd dim by default)
-    """
-    _device = next(autoencoder.parameters()).device.type
-    fig, ax = plt.subplots(1, 1)
-    ax.set_title('Sample Projection on Latent Space')
-    for i, (x, y) in enumerate(data):
-        z = autoencoder.encoder(x.to(_device))
-        z = z.to('cpu').detach().numpy()
-        im = ax.scatter(z[:, 0], z[:, 1], c=y, cmap='tab10')
-        if i > num_lim:
-            break
-    ax.grid(True)
-    ax.set_xlabel(r'$z_1$')
-    ax.set_ylabel(r'$z_2$')
-    #fig.colorbar(im, ax=ax)
-    return fig
 
 def plot_latent_each_digit0(autoencoder, data):
     """
@@ -77,36 +59,6 @@ def plot_latent_each_digit0(autoencoder, data):
     return fig
 
 
-
-def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
-    """Plot reconstructed image x from z on grid
-
-    Args:
-        autoencoder (_type_): _description_
-        r0 (tuple, optional): range of latent variable z1. Defaults to (-5, 10).
-        r1 (tuple, optional): range of latent variable z2. Defaults to (-10, 5).
-        num_img (int, optional): _description_. Defaults to 12.
-    """
-    w = 28
-    img = np.zeros((num_img*w, num_img*w))
-    _device = next(autoencoder.parameters()).device.type
-    for i, y in enumerate(np.linspace(*r1, num_img)):
-        for j, x in enumerate(np.linspace(*r0, num_img)):
-            z = torch.Tensor([[x, y]]).to(_device)
-            x_hat = autoencoder.decoder(z)
-            x_hat = x_hat.reshape(w, w).to('cpu').detach().numpy()
-            img[(num_img-1-i)*w:(num_img-1-i+1)*w, j*w:(j+1)*w] = x_hat
-    im = ax.imshow(img, extent=[*r0, *r1])
-    ax.set_xlabel(r'$z_1$')
-    ax.set_ylabel(r'$z_2$')
-    return ax
-
-# multi-processing
-# https://pytorch.org/docs/stable/notes/multiprocessing.html
-
-
-
-
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logger.info('device=%s is used for pytorch', device)
@@ -118,13 +70,14 @@ def main(args):
     obs_dim = 28*28
     logger.debug('prepare MNIST dataset from torchvision')
     logger.debug('%s', dataset)
+
     data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     logger.info('data logader. batch size={i}'.format(i=args.batch_size))
 
     if path.isfile(args.ckpt):
         ckpt_file = args.ckpt
         logger.info('load from checkpoint: %s', ckpt_file)
-        ckpts = torch.load(ckpt_file)
+        ckpts = torch.load(ckpt_file, weights_only=True)
         print(ckpts.keys())
         _dim = ckpts['latent_dims']
         vae = VariationalAutoencoder(_dim, obs_dim)
@@ -139,19 +92,32 @@ def main(args):
         vae = VariationalAutoencoder(latent_dims, obs_dim).to(device)
         vae = train_vae(vae, data, args.num_epoch, 0, True)
 
-    
     pngfile = 'vae_latent_each_digit.png'
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-    ax = plot_latent_each_digit(ax, vae, dataset)
-    fig.savefig(pngfile)
-    logger.info('save {0}'.format(pngfile))
+    if Path(pngfile).exists():
+        logger.warning(f'{pngfile=} exists. Skip plot latent digit')
+    else:
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+        ax = plot_latent_each_digit(ax, vae, dataset)
+        fig.savefig(pngfile)
+        logger.info(f'save {pngfile=}')
 
-    fig = plot_latent(vae, data, 1000)
-    fig.savefig('vae_latent_space_projection.png')
+    pngfile = 'vae_latent_space_projection.png'
+    if Path(pngfile).exists():
+        logger.warning(f'{pngfile=} exists. Training data projection onto latent space.')
+    else:  
+        fig, ax = plt.subplots(1, 1)
+        ax = plot_latent(ax, vae, data, 1000)
+        fig.savefig()
+        logger.info(f'save {pngfile=}')
 
+    pngfile = 'vae_reconstructed.png'
     fig, ax = plt.subplots(1, 1, figsize=(8,8))
     ax = plot_reconstructed(ax, vae, r0=(-3, 3), r1=(-3, 3))
-    fig.savefig('vae_reconstructed.png')
+    fig.savefig(pngfile)
+
+    fig, ax = plt.subplots(1, 1, figsize=(8,8))
+    ax = plot_reconstructed(ax, vae, r0=(-1, 1), r1=(-1, 1))
+    fig.savefig('vae_reconstructed2.png')
 
 def prepare_argparse():
     parser = argparse.ArgumentParser(description='PyTorch Variational Autoencoder for MNIST dataset')

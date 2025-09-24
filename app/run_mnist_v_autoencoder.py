@@ -78,14 +78,14 @@ def main(args):
         ckpt_file = args.ckpt
         logger.info('load from checkpoint: %s', ckpt_file)
         ckpts = torch.load(ckpt_file, weights_only=True)
-        print(ckpts.keys())
+        #print(ckpts.keys())
         _dim = ckpts['latent_dims']
         vae = VariationalAutoencoder(_dim, obs_dim)
         vae.load_state_dict(ckpts['model_state_dict'])
         _cur_epoch = ckpts['epoch']
         logger.info('resume: %s', args.resume)
-        if args.resume:
-            vae = train_vae(vae, data, args.num_epoch, _cur_epoch, True)
+        #if args.resume:
+        #    vae = train_vae(vae, data, args.num_epoch, _cur_epoch, True)
     else:
         latent_dims = args.latent_dims
         logger.debug('latent dimension=%d', latent_dims)
@@ -107,7 +107,7 @@ def main(args):
     else:  
         fig, ax = plt.subplots(1, 1)
         ax = plot_latent(ax, vae, data, 1000)
-        fig.savefig()
+        fig.savefig(pngfile)
         logger.info(f'save {pngfile=}')
 
     pngfile = 'vae_reconstructed.png'

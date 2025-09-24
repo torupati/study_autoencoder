@@ -27,7 +27,7 @@ def plot_latent_each_digit(ax, autoencoder, dataset, title_str = ""):
             _ret = autoencoder.encoder(x.to(_device))
             if isinstance(_ret, dict):
                 z = _ret['z']
-                print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
+                #print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
             else:
                 z = _ret
             z = z.to('cpu').detach().numpy()

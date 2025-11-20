@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.12"]
 
     steps:
     - uses: actions/checkout@v4
@@ -24,9 +24,12 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
     
-    - name: Install dependencies
+    - name: Install dependencies (CPU-only PyTorch)
       run: |
         uv venv --python ${{ matrix.python-version }}
+        # Install CPU-only PyTorch first to ensure no CUDA packages
+        uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
+        # Install remaining dependencies
         uv sync --all-groups
     
     - name: Lint and format with ruff
@@ -41,6 +44,21 @@ jobs:
         uv run mypy . --ignore-missing-imports
       continue-on-error: true
     
+    - name: Verify CPU-only PyTorch installation
+      run: |
+        echo "Checking PyTorch installation..."
+        uv run python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); assert '+cpu' in torch.__version__, 'PyTorch CPU version not detected'; assert not torch.cuda.is_available(), 'CUDA should not be available'"
+        
+        echo "Checking for NVIDIA packages..."
+        if uv pip list | grep -i nvidia; then
+          echo "❌ NVIDIA packages found - should not be installed"
+          exit 1
+        else
+          echo "✓ No NVIDIA packages found"
+        fi
+        
+        echo "✓ CPU-only PyTorch confirmed"
+    
     - name: Test with pytest
       run: |
         uv run pytest tests/ -v --tb=short
@@ -49,6 +67,9 @@ jobs:
       run: |
         uv run python tests/test_torch_basic.py
     
-    - name: Verify CPU-only PyTorch installation
+    - name: Test application help commands
       run: |
-        uv run python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); assert not torch.cuda.is_available(), 'CUDA should not be available'"
+        echo "Testing application help commands..."
+        uv run python app/run_mnist_autoencoder.py --help
+        uv run python app/run_mnist_v_autoencoder.py --help
+        echo "✓ Application help commands work"

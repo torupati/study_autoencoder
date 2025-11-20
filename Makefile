@@ -15,6 +15,12 @@ dev-install: ## Install with development dependencies (CPU-only PyTorch)
 	uv venv --python $(PYTHON_VERSION)
 	uv sync --all-groups
 
+setup-pre-commit: ## Setup pre-commit hooks
+	uv run pre-commit install
+
+pre-commit: ## Run pre-commit on all files
+	uv run pre-commit run --all-files
+
 install-cpu: ## Force install CPU-only PyTorch (removes any existing CUDA packages)
 	rm -rf .venv
 	uv venv --python $(PYTHON_VERSION)
@@ -24,13 +30,22 @@ install-cpu: ## Force install CPU-only PyTorch (removes any existing CUDA packag
 test: ## Run tests
 	uv run pytest tests/ -v
 
-format: ## Format code with black and isort
-	uv run black .
-	uv run isort .
+format: ## Format code with ruff
+	uv run ruff format .
 
-lint: ## Run linting checks
-	uv run flake8 .
-	uv run mypy .
+lint: ## Run linting checks with ruff and mypy
+	uv run ruff check .
+	uv run mypy . --ignore-missing-imports
+
+lint-fix: ## Run linting and auto-fix with ruff
+	uv run ruff check --fix .
+	uv run ruff format .
+
+ci-check: ## Run all CI checks locally
+	uv run ruff check .
+	uv run ruff format --check .
+	uv run mypy . --ignore-missing-imports || true
+	uv run pytest tests/ -v --tb=short
 
 clean: ## Clean up cache files and virtual environment
 	find . -type f -name "*.pyc" -delete

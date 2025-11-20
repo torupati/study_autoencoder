@@ -27,11 +27,13 @@ jobs:
     - name: Install dependencies (CPU-only PyTorch)
       run: |
         uv venv --python ${{ matrix.python-version }}
-        # Install dependencies with CPU-only PyTorch using pip install
-        # The --index-url sets the primary index (for torch), --extra-index-url for other packages
+        # Install CPU-only PyTorch with explicit version suffix
         uv pip install --index-url https://download.pytorch.org/whl/cpu \
                        --extra-index-url https://pypi.org/simple \
-                       torch torchvision numpy matplotlib tqdm scikit-learn opencv-python \
+                       --index-strategy unsafe-best-match \
+                       "torch==2.4.1+cpu" "torchvision==0.19.1+cpu"
+        # Install remaining dependencies
+        uv pip install numpy matplotlib tqdm scikit-learn opencv-python \
                        pytest ruff mypy pre-commit
     
     - name: Lint and format with ruff

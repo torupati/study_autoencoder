@@ -1,5 +1,7 @@
 # study_autoencoder
 
+![CI](https://github.com/yourusername/study_autoencoder/workflows/CI/badge.svg)
+
 These code are prepared for my learning of variational autoencoder.
 Code are work with MNIST dataset and specialised for this dataset.
 
@@ -53,10 +55,30 @@ uv run python app/run_mnist_v_autoencoder.py
 For development, install with dev dependencies:
 
 ```bash
-uv sync --all-groups --index-url https://download.pytorch.org/whl/cpu
+uv sync --all-groups
 ```
 
 **Important**: The code will automatically use CPU device since CUDA is not available. The device detection in the code will set `device = 'cpu'`.
+
+#### Code Quality Tools
+
+This project uses [ruff](https://docs.astral.sh/ruff/) for fast Python linting and formatting:
+
+```bash
+# Lint code
+uv run ruff check .
+
+# Format code
+uv run ruff format .
+
+# Lint and auto-fix issues
+uv run ruff check --fix .
+
+# Or use make commands
+make lint       # Check for issues
+make format     # Format code
+make lint-fix   # Fix issues and format
+```
 
 Run tests:
 
@@ -64,24 +86,43 @@ Run tests:
 uv run pytest tests/
 ```
 
-Format code:
+#### Available Commands
+
+Use the Makefile for common development tasks:
 
 ```bash
-uv run black .
-uv run isort .
+make help          # Show all available commands
+make install       # Install dependencies (CPU-only PyTorch)
+make dev-install   # Install with dev dependencies
+make format        # Format code with ruff
+make lint          # Run linting checks
+make lint-fix      # Auto-fix linting issues and format
+make test          # Run tests
+make ci-check      # Run all CI checks locally
+make clean         # Clean up cache files
 ```
-
-#### Legacy Poetry Usage (deprecated)
-
-If you prefer to use Poetry:
 
 ```bash
-$ pyenv local 3.9.17
-$ poetry env use 3.9.17
-$ poetry install
-$ poetry run python app/run_mnist_autoencoder.py
+make ci-check
 ```
 
+Setup pre-commit hooks (optional):
+
+```bash
+make setup-pre-commit
+```
+
+#### Continuous Integration
+
+This project uses GitHub Actions for continuous integration. On every push and pull request to any branch, the following checks are automatically run:
+
+- **Code Linting**: Flake8 checks for code quality and style
+- **Code Formatting**: Black and isort check code formatting
+- **Type Checking**: MyPy performs static type analysis
+- **Testing**: PyTest runs unit tests
+- **PyTorch Verification**: Ensures CPU-only PyTorch is working correctly
+
+The CI pipeline tests against Python versions 3.9, 3.10, 3.11, and 3.12.
 
 ## References
 

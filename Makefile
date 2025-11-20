@@ -24,8 +24,8 @@ pre-commit: ## Run pre-commit on all files
 install-cpu: ## Force install CPU-only PyTorch (removes any existing CUDA packages)
 	rm -rf .venv
 	uv venv --python $(PYTHON_VERSION)
-	uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
-	uv sync
+	uv pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple --index-strategy unsafe-best-match "torch==2.4.1+cpu" "torchvision==0.19.1+cpu"
+	uv pip install numpy matplotlib tqdm scikit-learn opencv-python pytest ruff mypy pre-commit
 
 test: ## Run tests
 	uv run pytest tests/ -v

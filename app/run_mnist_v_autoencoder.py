@@ -20,8 +20,8 @@ import torch.distributions
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils
-import torchvision
 
+from models.dataset_mnist import get_mnist_dataset
 from models.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
 from models.v_autoencoder import VariationalAutoencoder, train_vae
 
@@ -66,11 +66,9 @@ def main(args):
     logger.info("device=%s is used for pytorch", device)
 
     # Prepare dataset (MNIST) and dataloader
-    dataset = torchvision.datasets.MNIST(
-        args.dataset_dir, transform=torchvision.transforms.ToTensor(), download=True
-    )
+    dataset = get_mnist_dataset(args.dataset_dir, train=True)
     obs_dim = 28 * 28
-    logger.debug("prepare MNIST dataset from torchvision")
+    logger.debug("prepare MNIST dataset from custom implementation")
     logger.debug("%s", dataset)
 
     data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)

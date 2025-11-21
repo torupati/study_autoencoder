@@ -3,11 +3,11 @@ from os import path
 import cv2
 import numpy as np
 import torch
-import torchvision
 
-dataset = torchvision.datasets.MNIST(
-    "./data/", transform=torchvision.transforms.ToTensor(), download=True
-)
+from .dataset_mnist import get_mnist_dataset
+
+# Default dataset for utility functions
+dataset = get_mnist_dataset("./data/MNIST", train=True)
 
 
 def plot_latent_each_digit(ax, autoencoder, dataset, title_str=""):

@@ -24,7 +24,7 @@ pre-commit: ## Run pre-commit on all files
 install-cpu: ## Force install CPU-only PyTorch (removes any existing CUDA packages)
 	rm -rf .venv
 	uv venv --python $(PYTHON_VERSION)
-	uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
+	uv pip install torch --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
 	uv sync
 
 test: ## Run tests

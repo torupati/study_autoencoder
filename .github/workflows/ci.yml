@@ -64,8 +64,6 @@ jobs:
         else
           echo "✓ No NVIDIA packages found"
         fi
-        
-        echo "✓ CPU-only PyTorch confirmed"
     
     - name: Test with pytest
       run: |

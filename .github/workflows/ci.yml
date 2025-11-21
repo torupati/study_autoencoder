@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+    
+    - name: Install dependencies (CPU-only PyTorch)
+      run: |
+        uv venv --python ${{ matrix.python-version }}
+        uv pip install -U pip
+        uv pip install torch --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
+        uv sync --all-groups
+    
+    - name: Lint and format with ruff
+      run: |
+        # Check for linting issues
+        uv run ruff check .
+        # Check code formatting
+        uv run ruff format --check .
+    
+    - name: Type check with mypy
+      run: |
+        uv run mypy models app tests --ignore-missing-imports
+      continue-on-error: true
+    
+    - name: Verify CPU-only PyTorch installation
+      run: |
+        echo "Checking PyTorch installation..."
+        uv run python - <<'PY'
+        import sys, torch
+        print("PyTorch version:", torch.__version__)
+        print("torch.version.cuda:", torch.version.cuda)
+        if torch.version.cuda is not None:
+            print("❌ CUDA-enabled PyTorch build detected")
+            sys.exit(1)
+        else:
+            print("✓ CPU-only PyTorch confirmed")
+        PY
+        
+        echo "Checking for NVIDIA packages..."
+        if uv pip list | grep -i nvidia; then
+          echo "❌ NVIDIA packages found - should not be installed"
+          exit 1
+        else
+          echo "✓ No NVIDIA packages found"
+        fi
+        
+        echo "✓ CPU-only PyTorch confirmed"
+    
+    - name: Test with pytest
+      run: |
+        uv run pytest tests/ -v --tb=short
+    
+    - name: Test PyTorch basic functionality
+      run: |
+        uv run python tests/test_torch_basic.py
+    
+    - name: Test application help commands
+      run: |
+        echo "Testing application help commands..."
+        uv run python app/run_mnist_autoencoder.py --help
+        uv run python app/run_mnist_v_autoencoder.py --help
+        echo "✓ Application help commands work"

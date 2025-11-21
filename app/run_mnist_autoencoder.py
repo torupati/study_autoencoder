@@ -12,10 +12,10 @@ torch.manual_seed(0)
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.utils
-import torchvision
 from tqdm import tqdm
 
 from models.autoencoder import Autoencoder, train
+from models.dataset_mnist import get_mnist_dataset
 from models.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
 
 logger = logging.getLogger(__name__)
@@ -33,11 +33,9 @@ def main(args):
     logger.info("device=%s is used for pytorch", device)
 
     # Prepare dataset (MNIST) and dataloader
-    dataset = torchvision.datasets.MNIST(
-        args.dataset_dir, transform=torchvision.transforms.ToTensor(), download=True
-    )
+    dataset = get_mnist_dataset(args.dataset_dir, train=True)
     obs_dim = 28 * 28
-    logger.debug("prepare MNIST dataset from torchvision")
+    logger.debug("prepare MNIST dataset from custom implementation")
     logger.debug("%s", dataset)
     data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     logger.info(f"data logader. batch size={args.batch_size}")

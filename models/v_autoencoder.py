@@ -5,7 +5,6 @@ import torch.distributions
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils
-import torchvision
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)

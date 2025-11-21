@@ -3,9 +3,25 @@
 ![CI](https://github.com/yourusername/study_autoencoder/workflows/CI/badge.svg)
 
 These code are prepared for my learning of variational autoencoder.
-Code are work with MNIST dataset and specialised for this dataset.
+Code work with MNIST dataset and are specialised for this dataset.
 
 For comparison, autoencoder is also prepared. Each sample of MNIST can be converted to PNG file.
+
+## Features
+
+- **Custom MNIST Dataset**: Pure PyTorch implementation without torchvision dependency
+- **CPU-only PyTorch**: Optimized for CPU-only environments, no CUDA dependencies
+- **Modern tooling**: Uses uv for package management, ruff for linting/formatting
+- **Comprehensive CI**: GitHub Actions with testing and code quality checks
+
+### Custom MNIST Implementation
+
+This project includes a custom MNIST dataset implementation (`models/dataset_mnist.py`) that reads the original MNIST binary files directly, eliminating the need for torchvision. The implementation:
+
+- Supports both training and test sets
+- Reads compressed (.gz) and uncompressed binary files
+- Provides the same interface as torchvision's MNIST dataset
+- Includes proper data validation and error handling
 
 
 ### Usage 

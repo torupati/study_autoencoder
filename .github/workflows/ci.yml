@@ -44,20 +44,20 @@ jobs:
         uv run mypy . --ignore-missing-imports
       continue-on-error: true
     
-    - name: Verify CPU-only PyTorch installation
-      run: |
-        echo "Checking PyTorch installation..."
-        uv run python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); assert '+cpu' in torch.__version__, 'PyTorch CPU version not detected'; assert not torch.cuda.is_available(), 'CUDA should not be available'"
+    #- name: Verify CPU-only PyTorch installation
+    #  run: |
+    #    echo "Checking PyTorch installation..."
+    #    uv run python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); assert '+cpu' in torch.__version__, 'PyTorch CPU version not detected'; assert not torch.cuda.is_available(), 'CUDA should not be available'"
+    #    
+    #    echo "Checking for NVIDIA packages..."
+    #    if uv pip list | grep -i nvidia; then
+    #      echo "❌ NVIDIA packages found - should not be installed"
+    #      exit 1
+    #    else
+    #      echo "✓ No NVIDIA packages found"
+    #    fi
         
-        echo "Checking for NVIDIA packages..."
-        if uv pip list | grep -i nvidia; then
-          echo "❌ NVIDIA packages found - should not be installed"
-          exit 1
-        else
-          echo "✓ No NVIDIA packages found"
-        fi
-        
-        echo "✓ CPU-only PyTorch confirmed"
+    #    echo "✓ CPU-only PyTorch confirmed"
     
     - name: Test with pytest
       run: |

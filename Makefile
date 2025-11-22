@@ -35,7 +35,7 @@ format: ## Format code with ruff
 
 lint: ## Run linting checks with ruff and mypy
 	uv run ruff check .
-	uv run mypy . --ignore-missing-imports
+	uv run mypy models app tests --ignore-missing-imports
 
 lint-fix: ## Run linting and auto-fix with ruff
 	uv run ruff check --fix .
@@ -44,7 +44,7 @@ lint-fix: ## Run linting and auto-fix with ruff
 ci-check: ## Run all CI checks locally
 	uv run ruff check .
 	uv run ruff format --check .
-	uv run mypy . --ignore-missing-imports || true
+	uv run mypy models app tests --ignore-missing-imports || true
 	uv run pytest tests/ -v --tb=short
 
 clean: ## Clean up cache files and virtual environment

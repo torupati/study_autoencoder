@@ -41,7 +41,10 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        uv run mypy . --ignore-missing-imports
+        uv run mypy models --ignore-missing-imports
+        uv run mypy app --ignore-missing-imports
+        uv run mypy tests --ignore-missing-imports
+    #    uv run mypy . --ignore-missing-imports
       continue-on-error: true
     
     #- name: Verify CPU-only PyTorch installation

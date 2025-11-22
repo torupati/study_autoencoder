@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Autoencoder(nn.Module):
     """

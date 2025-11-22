@@ -1,7 +1,7 @@
 .PHONY: install dev-install test format lint clean run-autoencoder run-vae help
 
 # Default Python version
-PYTHON_VERSION ?= 3.9
+PYTHON_VERSION ?= 3.11
 
 help: ## Show this help message
 	@echo "Available commands:"

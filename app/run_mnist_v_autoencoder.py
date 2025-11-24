@@ -107,7 +107,7 @@ def main(args):
     else:
         fig, ax = plt.subplots(1, 1)
         ax = plot_latent(ax, vae, data, 1000)
-        fig.savefig()
+        fig.savefig(pngfile)
         logger.info(f"save {pngfile=}")
 
     pngfile = "vae_reconstructed.png"
@@ -126,7 +126,7 @@ def prepare_argparse():
     )
     # training condition
     parser.add_argument(
-        "--dataset_dir", default="./data/", type=str, help="MNIST dataset directory"
+        "--dataset_dir", default="./data/MNIST/", type=str, help="MNIST dataset directory"
     )
     parser.add_argument("--batch_size", default=128, type=int, help="batch size of data loader")
     parser.add_argument(

@@ -13,11 +13,11 @@ Usage:
 
 import argparse
 import gzip
+import logging
 import shutil
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.request import urlretrieve
-from urllib.error import URLError, HTTPError
-import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

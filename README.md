@@ -156,7 +156,8 @@ The CI pipeline tests against Python versions 3.9, 3.10, 3.11, and 3.12.
 
 ### VAE
 
-- https://avandekleut.github.io/vae/
+- Original Paper: [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114) (Kingma & Welling, 2013)
+- Tutorial: https://avandekleut.github.io/vae/
 
 ### MNIST
 
@@ -177,4 +178,3 @@ https://scikit-learn.org/stable/auto_examples/classification/plot_digits_classif
 - docker build for poetry
   https://stackoverflow.com/questions/68756419/dockerfile-multistage-python-poetry-install
 
-  

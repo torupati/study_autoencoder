@@ -21,9 +21,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils
 
-from models.dataset_mnist import get_mnist_dataset
-from models.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
-from models.v_autoencoder import VariationalAutoencoder, train_vae
+from models.mnist.dataset_mnist import get_mnist_dataset
+from models.mnist.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
+from models.mnist.v_autoencoder import VariationalAutoencoder, train_vae
 
 logger = logging.getLogger(__name__)
 stream_handler = logging.StreamHandler()
@@ -44,7 +44,6 @@ def plot_latent_each_digit0(autoencoder, data):
     fig.suptitle("Sample Projection on Latent Space")
     for y_digit in range(0, 10):
         ax_i, ax_j = y_digit // 5, y_digit % 5
-        print(ax_i, ax_j)
         for i, (x, y) in enumerate(data):
             x = x[y == y_digit]
             y = y[y == y_digit]
@@ -106,17 +105,20 @@ def main(args):
         logger.warning(f"{pngfile=} exists. Training data projection onto latent space.")
     else:
         fig, ax = plt.subplots(1, 1)
-        ax = plot_latent(ax, vae, data, 1000)
-        fig.savefig()
+        im = plot_latent(ax, vae, data, 1000)
+        fig.colorbar(im, ax=ax, label="Digit")
+        fig.savefig(pngfile)
         logger.info(f"save {pngfile=}")
 
     pngfile = "vae_reconstructed.png"
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    ax = plot_reconstructed(ax, vae, r0=(-3, 3), r1=(-3, 3))
+    im = plot_reconstructed(ax, vae, r0=(-3, 3), r1=(-3, 3))
+    fig.colorbar(im, ax=ax)
     fig.savefig(pngfile)
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    ax = plot_reconstructed(ax, vae, r0=(-1, 1), r1=(-1, 1))
+    im = plot_reconstructed(ax, vae, r0=(-1, 1), r1=(-1, 1))
+    fig.colorbar(im, ax=ax)
     fig.savefig("vae_reconstructed2.png")
 
 
@@ -126,7 +128,7 @@ def prepare_argparse():
     )
     # training condition
     parser.add_argument(
-        "--dataset_dir", default="./data/", type=str, help="MNIST dataset directory"
+        "--dataset_dir", default="./data/MNIST/", type=str, help="MNIST dataset directory"
     )
     parser.add_argument("--batch_size", default=128, type=int, help="batch size of data loader")
     parser.add_argument(

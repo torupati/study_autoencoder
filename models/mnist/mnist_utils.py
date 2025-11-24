@@ -90,9 +90,26 @@ def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
     w = 28
     img = np.zeros((num_img * w, num_img * w))
     _device = next(autoencoder.parameters()).device.type
+
+    # Get latent dimension from encoder
+    with torch.no_grad():
+        dummy_input = torch.zeros(1, 784).to(_device)
+        _ret = autoencoder.encoder(dummy_input)
+        if isinstance(_ret, dict):
+            z_sample = _ret["z"]
+        else:
+            z_sample = _ret
+        latent_dim = z_sample.shape[1]
+
     for i, y in enumerate(np.linspace(*r1, num_img)):
         for j, x in enumerate(np.linspace(*r0, num_img)):
-            z = torch.Tensor([[x, y]]).to(_device)
+            # Create z with proper dimension, padding with zeros if needed
+            if latent_dim == 2:
+                z = torch.Tensor([[x, y]]).to(_device)
+            else:
+                z_values = [x, y] + [0.0] * (latent_dim - 2)
+                z = torch.Tensor([z_values]).to(_device)
+
             x_hat = autoencoder.decoder(z)
             x_hat = x_hat.reshape(w, w).to("cpu").detach().numpy()
             img[(num_img - 1 - i) * w : (num_img - 1 - i + 1) * w, j * w : (j + 1) * w] = x_hat

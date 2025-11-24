@@ -14,9 +14,9 @@ import numpy as np
 import torch.utils
 from tqdm import tqdm
 
-from models.autoencoder import Autoencoder, train
-from models.dataset_mnist import get_mnist_dataset
-from models.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
+from models.mnist.autoencoder import Autoencoder, train
+from models.mnist.dataset_mnist import get_mnist_dataset
+from models.mnist.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
 
 logger = logging.getLogger(__name__)
 stream_handler = logging.StreamHandler()
@@ -78,7 +78,7 @@ def prepare_argparse():
     )
     # training condition
     parser.add_argument(
-        "--dataset_dir", default="./data/", type=str, help="MNIST dataset directory"
+        "--dataset_dir", default="./data/MNIST/", type=str, help="MNIST dataset directory"
     )
     parser.add_argument("--batch_size", default=128, type=int, help="batch size of data loader")
     parser.add_argument(

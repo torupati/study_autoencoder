@@ -19,7 +19,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import urlretrieve
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # PyTorch's official S3 mirror (most reliable)

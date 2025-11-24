@@ -22,9 +22,8 @@ pre-commit: ## Run pre-commit on all files
 	uv run pre-commit run --all-files
 
 install-cpu: ## Force install CPU-only PyTorch (removes any existing CUDA packages)
-	rm -rf .venv
+	rm -rf .venv uv.lock
 	uv venv --python $(PYTHON_VERSION)
-	uv pip install torch --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
 	uv sync
 
 test: ## Run tests

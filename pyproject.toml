@@ -34,11 +34,11 @@ build-backend = "hatchling.build"
 packages = ["models", "app"]
 
 [tool.uv]
-index-url = "https://download.pytorch.org/whl/cpu"
+index-url = "https://pypi.org/simple"
 extra-index-url = [
-    "https://pypi.org/simple"
+    "https://download.pytorch.org/whl/cpu"
 ]
-index-strategy = "unsafe-best-match"
+index-strategy = "unsafe-first-match"
 
 [dependency-groups]
 dev = [

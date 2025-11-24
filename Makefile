@@ -21,6 +21,9 @@ setup-pre-commit: ## Setup pre-commit hooks
 pre-commit: ## Run pre-commit on all files
 	uv run pre-commit run --all-files
 
+download-data: ## Download MNIST dataset
+	uv run python misc/download_mnist.py --path ./data
+
 install-cpu: ## Force install CPU-only PyTorch (removes any existing CUDA packages)
 	rm -rf .venv uv.lock
 	uv venv --python $(PYTHON_VERSION)

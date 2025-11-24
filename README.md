@@ -54,6 +54,18 @@ make install
 
 **Note**: This project is configured to use CPU-only versions of PyTorch and TorchVision to avoid CUDA dependencies. The configuration in `pyproject.toml` ensures that only CPU versions are installed from the PyTorch CPU index.
 
+#### Data Preparation
+
+Before running the applications, download the MNIST dataset:
+
+```bash
+# Download MNIST dataset files
+uv run python misc/download_mnist.py --path ./data
+
+# Or manually download from http://yann.lecun.com/exdb/mnist/
+# Files will be saved to data/MNIST/raw/
+```
+
 #### Running the code
 
 After installation, you can run the autoencoder training:

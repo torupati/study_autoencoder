@@ -169,3 +169,13 @@ uv.lock
 *.jpg
 *.jpeg
 models/saved_models/
+
+# MNIST dataset files
+data/MNIST/
+*.gz
+*-idx*-ubyte
+t10k-*
+train-*
+
+# Model checkpoints
+checkpoint_*.pth

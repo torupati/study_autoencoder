@@ -4,7 +4,7 @@ Autoencoder for MNIST dataset
 
 import argparse
 import logging
-from os import path
+from pathlib import Path
 
 import torch
 
@@ -40,7 +40,7 @@ def main(args):
     data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     logger.info(f"data logader. batch size={args.batch_size}")
 
-    if path.isfile(args.ckpt):
+    if Path(args.ckpt).is_file():
         ckpt_file = args.ckpt
         logger.info("load from checkpoint: %s", ckpt_file)
         ckpts = torch.load(ckpt_file, weights_only=True)

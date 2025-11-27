@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
@@ -44,9 +45,13 @@ class GrayscaleImage128Dataset(Dataset):
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
         img_path = self.image_files[idx]
-        image = Image.open(img_path).convert("L")  # Convert to grayscale
+        pil_image = Image.open(img_path).convert("L")  # Convert to grayscale
 
         if self.transform:
-            image = self.transform(image)
+            tensor_image = self.transform(pil_image)
+        else:
+            # If no transform, manually convert to tensor
+            tensor_image = torch.from_numpy(np.array(pil_image)).float() / 255.0
+            tensor_image = tensor_image.unsqueeze(0)  # Add channel dimension
 
-        return image, 0  # Return dummy label for compatibility
+        return tensor_image, 0  # Return dummy label for compatibility

@@ -39,20 +39,41 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Then, create a virtual environment and install dependencies:
 
 ```bash
-# Create virtual environment with Python 3.9+
-uv venv --python 3.9
-
-# Activate the virtual environment
+# For CPU-only environment (recommended for development without GPU)
+make install-cpu
 source .venv/bin/activate
 
-# Install CPU-only PyTorch dependencies
-uv sync
-
-# Or use make command for easier installation
-make install
+# Or for CUDA 12.1 environment (if NVIDIA GPU available)
+make install-cuda
+source .venv/bin/activate
 ```
 
-**Note**: This project is configured to use CPU-only versions of PyTorch and TorchVision to avoid CUDA dependencies. The configuration in `pyproject.toml` ensures that only CPU versions are installed from the PyTorch CPU index.
+**Environment Options:**
+
+- **CPU-only** (default): Lightweight, no GPU required, perfect for development/testing
+  ```bash
+  make install-cpu
+  ```
+
+- **CUDA 12.1**: GPU-accelerated training, requires NVIDIA GPU and CUDA toolkit
+  ```bash
+  make install-cuda
+  ```
+
+- **Manual installation** (using uv directly):
+  ```bash
+  # CPU version
+  UV_INDEX_URL="https://download.pytorch.org/whl/cpu" \
+  UV_EXTRA_INDEX_URL="https://pypi.org/simple" \
+  uv sync
+
+  # CUDA version
+  UV_INDEX_URL="https://download.pytorch.org/whl/cu121" \
+  UV_EXTRA_INDEX_URL="https://pypi.org/simple" \
+  uv sync
+  ```
+
+**Note**: The `pyproject.toml` is environment-agnostic. PyTorch version is the same for both CPU and CUDA. The actual device (CPU or GPU) is determined by the PyTorch wheel index specified during installation.
 
 #### Data Preparation
 
@@ -119,19 +140,43 @@ uv run pytest tests/
 Use the Makefile for common development tasks:
 
 ```bash
-make help          # Show all available commands
-make install       # Install dependencies (CPU-only PyTorch)
-make dev-install   # Install with dev dependencies
-make format        # Format code with ruff
-make lint          # Run linting checks
-make lint-fix      # Auto-fix linting issues and format
-make test          # Run tests
-make ci-check      # Run all CI checks locally
-make clean         # Clean up cache files
+make help              # Show all available commands
+make install-cpu       # Install CPU-only PyTorch (default)
+make install-cuda      # Install CUDA 12.1 PyTorch for GPU
+make sync              # Sync dependencies with current environment
+make install-dev       # Install with dev dependencies
+make format            # Format code with ruff
+make lint              # Run linting checks
+make lint-fix          # Auto-fix linting issues and format
+make test              # Run tests
+make ci-check          # Run all CI checks locally
+make clean             # Clean up cache files
 ```
 
+**Switching between environments:**
+
 ```bash
-make ci-check
+# From CPU to CUDA
+make install-cuda
+source .venv/bin/activate
+
+# From CUDA to CPU
+make install-cpu
+source .venv/bin/activate
+```
+
+**Using environment files (optional):**
+
+Pre-configured environment files are available for quick setup:
+
+```bash
+# Source the CPU environment
+source .env.cpu
+make install-cpu
+
+# Or source the CUDA environment
+source .env.cuda
+make install-cuda
 ```
 
 Setup pre-commit hooks (optional):

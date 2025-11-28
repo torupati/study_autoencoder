@@ -198,8 +198,8 @@ test_loss_log = []
 
 for i in range(epoch, max_epoch):
     print(f"Epoch {i}/{max_epoch}")
-    train_loss = 0
-    test_loss = 0
+    train_loss: float = 0.0
+    test_loss: float = 0.0
     model = model.to(device)
 
     model.train()  # training mode
@@ -222,8 +222,10 @@ for i in range(epoch, max_epoch):
         test_loss += loss.item()
 
     # calculate and display losses for each epoch
-    train_loss /= len(trainloader.dataset)
-    test_loss /= len(testloader.dataset)
+    dataset_size_train: int = len(trainloader.dataset) if hasattr(trainloader.dataset, '__len__') else 1
+    dataset_size_test: int = len(testloader.dataset) if hasattr(testloader.dataset, '__len__') else 1
+    train_loss /= float(dataset_size_train)
+    test_loss /= float(dataset_size_test)
     print("epock %d train_loss: %.5f test_loss: %.5f" % (i, train_loss, test_loss))
     train_loss_log.append(train_loss)
     test_loss_log.append(test_loss)

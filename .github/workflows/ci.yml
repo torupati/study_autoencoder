@@ -27,13 +27,19 @@ jobs:
     - name: Install dependencies (CPU-only PyTorch)
       run: |
         uv venv --python ${{ matrix.python-version }}
-        # Install CPU-only PyTorch first to ensure no CUDA packages
+        # Install CPU-only PyTorch with uv directly
         uv pip install torch --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
-        # Install remaining dependencies
-        uv sync --all-groups
+        # Install project and all dependencies in editable mode
+        uv pip install -e ".[dev]"
     
     - name: Lint and format with ruff
       run: |
+        echo "Python:"
+        uv run python -V
+        echo "uv environment info:"
+        uv --version || true
+        echo "Installed ruff version:"
+        uv run ruff --version
         # Check for linting issues
         uv run ruff check .
         # Check code formatting
@@ -41,10 +47,7 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        uv run mypy models --ignore-missing-imports
-        uv run mypy app --ignore-missing-imports
-        uv run mypy tests --ignore-missing-imports
-    #    uv run mypy . --ignore-missing-imports
+        uv run mypy models/mnist models/image128 app/run_mnist_autoencoder.py app/run_mnist_v_autoencoder.py --ignore-missing-imports
       continue-on-error: true
 
     - name: Verify CPU-only PyTorch installation

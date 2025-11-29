@@ -4,7 +4,7 @@ Autoencoder for MNIST dataset
 
 import argparse
 import logging
-from os import path
+from pathlib import Path
 
 import torch
 
@@ -14,7 +14,7 @@ import numpy as np
 import torch.utils
 from tqdm import tqdm
 
-from models.mnist.autoencoder import Autoencoder, train
+from models.mnist.base_ae import Autoencoder, train
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
 
@@ -40,7 +40,7 @@ def main(args):
     data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     logger.info(f"data logader. batch size={args.batch_size}")
 
-    if path.isfile(args.ckpt):
+    if Path(args.ckpt).is_file():
         ckpt_file = args.ckpt
         logger.info("load from checkpoint: %s", ckpt_file)
         ckpts = torch.load(ckpt_file, weights_only=True)

@@ -5,16 +5,13 @@ This is based on (almost copied from) this awsome page.
 https://avandekleut.github.io/vae/
 """
 
-from pathlib import Path
-
-import numpy as np
-import torch
-
-torch.manual_seed(0)
 import argparse
 import logging
+from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 import torch.distributions
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,6 +20,8 @@ import torch.utils
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
 from models.mnist.vae import VariationalAutoencoder, train_vae
+
+torch.manual_seed(0)
 
 logger = logging.getLogger(__name__)
 stream_handler = logging.StreamHandler()

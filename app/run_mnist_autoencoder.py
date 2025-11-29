@@ -6,17 +6,17 @@ import argparse
 import logging
 from pathlib import Path
 
-import torch
-
-torch.manual_seed(0)
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 import torch.utils
 from tqdm import tqdm
 
 from models.mnist.base_ae import Autoencoder, train
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
+
+torch.manual_seed(0)
 
 logger = logging.getLogger(__name__)
 stream_handler = logging.StreamHandler()

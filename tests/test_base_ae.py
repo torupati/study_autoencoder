@@ -5,6 +5,7 @@ Unit tests for base_ae.py (Simple Autoencoder)
 import pytest
 import torch
 import torch.nn as nn
+
 from models.mnist.base_ae import Autoencoder
 
 

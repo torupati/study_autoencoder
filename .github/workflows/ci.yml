@@ -34,6 +34,12 @@ jobs:
     
     - name: Lint and format with ruff
       run: |
+        echo "Python:"
+        uv run python -V
+        echo "uv environment info:"
+        uv --version || true
+        echo "Installed ruff version:"
+        uv run ruff --version
         # Check for linting issues
         uv run ruff check .
         # Check code formatting

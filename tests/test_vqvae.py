@@ -2,10 +2,11 @@
 Unit tests for vqvae.py (Vector Quantized Variational Autoencoder)
 """
 
-import models.mnist.vqvae as vqvae_module
 import pytest
 import torch
 import torch.nn as nn
+
+import models.mnist.vqvae as vqvae_module
 from models.mnist.vqvae import (
     VQVAE,
     Decoder,

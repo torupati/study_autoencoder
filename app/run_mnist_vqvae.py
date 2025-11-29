@@ -1,14 +1,14 @@
 import matplotlib.pyplot as plt
-import models.mnist.vqvae as vqvae_module
 import torch
-from models.mnist.vqvae import VQVAE
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
+import models.mnist.vqvae as vqvae_module
 from models.mnist.dataset_mnist import get_mnist_dataset
+from models.mnist.vqvae import VQVAE
 
 if torch.cuda.is_available():
     device = "cuda"

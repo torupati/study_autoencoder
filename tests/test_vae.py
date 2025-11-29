@@ -5,6 +5,7 @@ Unit tests for vae.py (Variational Autoencoder)
 import pytest
 import torch
 import torch.nn as nn
+
 from models.mnist.vae import VariationalAutoencoder, train_vae
 
 

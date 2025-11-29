@@ -12,6 +12,7 @@ def test_tensor_addition():
     expected = torch.tensor([4.0, 6.0])
     assert torch.equal(result, expected)
 
+
 def test_autograd():
     x = torch.randn(2, 2, requires_grad=True)
     y = torch.randn(2, 2, requires_grad=True)

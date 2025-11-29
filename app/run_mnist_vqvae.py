@@ -8,10 +8,11 @@ from tqdm import tqdm
 
 from models.mnist.dataset_mnist import get_mnist_dataset
 
-# define transformation function for image data normalization
 transform = transforms.Compose(
     [
-        transforms.Normalize((0.5,), (0.5,))  # Normalize to [-0.5, 0.5]
+        transforms.Normalize((0.5,), (0.5,))
+        # Normalize to [-1, 1] range
+        # transforms.Lambda(lambda x: x * 2.0 - 1.0),
     ]
 )
 

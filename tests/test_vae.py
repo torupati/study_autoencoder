@@ -5,6 +5,7 @@ Unit tests for vae.py (Variational Autoencoder)
 import pytest
 import torch
 import torch.nn as nn
+
 from models.mnist.vae import VariationalAutoencoder, train_vae
 
 
@@ -56,10 +57,10 @@ class TestVariationalAutoencoder:
         output = model.encoder(x)
         mu = output["mu"]
         sigma = output["sigma"]
-        
+
         # Sigma should be positive
         assert torch.all(sigma > 0), "Sigma should be positive"
-        
+
         # Both should have same shape as latent_dims
         assert mu.shape == (16, 32)
         assert sigma.shape == (16, 32)
@@ -67,14 +68,14 @@ class TestVariationalAutoencoder:
     def test_sampling_diversity(self, model):
         """Test that sampling produces different values."""
         x = torch.randn(1, 784)
-        
+
         with torch.no_grad():
             output1 = model.encoder(x)
             output2 = model.encoder(x)
-        
+
         z1 = output1["z"]
         z2 = output2["z"]
-        
+
         # Should be different due to sampling (unless by chance identical)
         # At least they should have same shape
         assert z1.shape == z2.shape
@@ -85,7 +86,7 @@ class TestVariationalAutoencoder:
         x_hat = model.forward(x)
         loss = ((x - x_hat) ** 2).mean() + model.encoder.kl
         loss.backward()
-        
+
         # Check that gradients are computed
         assert model.encoder.linear1.weight.grad is not None
         assert model.decoder.linear2.weight.grad is not None
@@ -115,7 +116,7 @@ class TestVariationalAutoencoder:
         """Test that reconstruction loss can be computed."""
         x = torch.randn(16, 784)
         x_hat = model.forward(x)
-        
+
         # MSE loss for reconstruction
         loss = ((x - x_hat) ** 2).mean()
         assert loss.item() >= 0, "Loss should be non-negative"
@@ -125,7 +126,7 @@ class TestVariationalAutoencoder:
         x = torch.randn(16, 784)
         model.encoder(x)
         kl = model.encoder.kl
-        
+
         assert kl.item() >= 0, "KL divergence should be non-negative"
         assert not torch.isnan(torch.tensor(kl.item()))
 
@@ -145,8 +146,8 @@ class TestVariationalAutoencoderTrain:
     def test_train_vae_returns_model(self, simple_dataloader):
         """Test that train_vae returns a trained model."""
         model = VariationalAutoencoder(latent_dims=32, obs_dim=784)
-        
+
         trained_model = train_vae(model, simple_dataloader, epochs=1, start_epoch=0)
-        
+
         assert trained_model is not None
         assert isinstance(trained_model, VariationalAutoencoder)

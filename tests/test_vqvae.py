@@ -5,15 +5,16 @@ Unit tests for vqvae.py (Vector Quantized Variational Autoencoder)
 import pytest
 import torch
 import torch.nn as nn
+
+import models.mnist.vqvae as vqvae_module
 from models.mnist.vqvae import (
+    VQVAE,
+    Decoder,
+    Encoder,
     ResidualLayer,
     ResidualStack,
-    Encoder,
     VectorQuantizer,
-    Decoder,
-    VQVAE,
 )
-import models.mnist.vqvae as vqvae_module
 
 
 class TestResidualLayer:
@@ -119,7 +120,7 @@ class TestVectorQuantizer:
         """Test quantizer output shapes."""
         z = torch.randn(4, 64, 7, 7)
         loss, z_q, min_encodings, min_encoding_indices = quantizer(z)
-        
+
         assert z_q.shape == z.shape, "Quantized output should match input shape"
         assert min_encodings.shape[0] == 4 * 7 * 7  # Batch * spatial dims
         assert min_encoding_indices.shape[0] == 4 * 7 * 7
@@ -135,7 +136,7 @@ class TestVectorQuantizer:
         """Test that embeddings are used for quantization."""
         z = torch.randn(1, 64, 1, 1)
         _, z_q, _, _ = quantizer(z)
-        
+
         # z_q should be close to one of the embeddings
         # (or a linear combination due to straight-through estimator)
         assert z_q.shape == z.shape
@@ -183,7 +184,7 @@ class TestVQVAE:
         """Test complete forward pass."""
         x = torch.randn(4, 1, 28, 28)
         embedding_loss, x_hat = model(x)
-        
+
         assert x_hat.shape == x.shape
         assert embedding_loss.item() >= 0
         assert not torch.isnan(embedding_loss)
@@ -199,10 +200,10 @@ class TestVQVAE:
         """Test that gradients flow through the complete model."""
         x = torch.randn(4, 1, 28, 28, requires_grad=True)
         embedding_loss, x_hat = model(x)
-        
+
         loss = embedding_loss + ((x - x_hat) ** 2).mean()
         loss.backward()
-        
+
         # Check that gradients are computed in different parts
         assert model.encoder.conv_stack[0].weight.grad is not None
 
@@ -216,11 +217,11 @@ class TestVQVAE:
     def test_deterministic_forward_reconstruction(self, model):
         """Test reconstruction is consistent with same latent codes."""
         z = torch.randn(4, 64, 7, 7)
-        
+
         with torch.no_grad():
             x_hat1 = model.decoder(z)
             x_hat2 = model.decoder(z)
-        
+
         assert torch.allclose(x_hat1, x_hat2)
 
     def test_encoder_output_dimension_match(self, model):
@@ -228,7 +229,7 @@ class TestVQVAE:
         x = torch.randn(4, 1, 28, 28)
         z_e = model.encoder(x)
         z_e_proj = model.pre_quantization_conv(z_e)
-        
+
         # Should match embedding_dim
         assert z_e_proj.shape[1] == 64
 
@@ -236,7 +237,7 @@ class TestVQVAE:
         """Test output pixel values are in valid range."""
         x = torch.randn(4, 1, 28, 28)
         _, x_hat = model(x)
-        
+
         # Values should be reasonable (between extreme values)
         assert x_hat.min() >= -2.0 and x_hat.max() <= 2.0
 
@@ -257,18 +258,18 @@ class TestVQVAEIntegration:
         vqvae_module.device = "cpu"
         model = VQVAE(128, 32, 2, 512, 64, 0.25).to("cpu")
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-        
+
         model.train()
         for batch_idx, (x, _) in enumerate(simple_dataloader):
             embedding_loss, x_hat = model(x)
             recon_loss = torch.nn.functional.mse_loss(x_hat, x)
             loss = recon_loss + embedding_loss
-            
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
             assert not torch.isnan(loss), "Loss became NaN"
-            
+
             if batch_idx == 1:  # Just run 2 batches for quick test
                 break

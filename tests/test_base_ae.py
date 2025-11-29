@@ -5,6 +5,7 @@ Unit tests for base_ae.py (Simple Autoencoder)
 import pytest
 import torch
 import torch.nn as nn
+
 from models.mnist.base_ae import Autoencoder
 
 
@@ -47,7 +48,7 @@ class TestAutoencoder:
         x_hat = model(x)
         loss = ((x - x_hat) ** 2).mean()
         loss.backward()
-        
+
         # Check that gradients are computed
         assert model.encoder.linear1.weight.grad is not None
         assert model.decoder.linear2.weight.grad is not None
@@ -104,10 +105,10 @@ class TestAutoencoderTrain:
         """Test that training loop reduces loss (basic sanity check)."""
         model = Autoencoder(latent_dims=32, obs_dim=784)
         from models.mnist.base_ae import train
-        
+
         # Train for a few epochs
         trained_model = train(model, simple_dataloader, epochs=2, start_epoch=0)
-        
+
         # Model should be returned
         assert trained_model is not None
         assert isinstance(trained_model, Autoencoder)

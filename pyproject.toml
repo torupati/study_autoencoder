@@ -84,6 +84,17 @@ ignore = [
     "UP031", # format string preferences (keeping existing style)
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["models"]
+known-local-folder = ["app"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
 [tool.ruff.format]
 # Format configuration
 quote-style = "double"

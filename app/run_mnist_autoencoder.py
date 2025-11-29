@@ -14,7 +14,11 @@ from tqdm import tqdm
 
 from models.mnist.base_ae import Autoencoder, train
 from models.mnist.dataset_mnist import get_mnist_dataset
-from models.mnist.mnist_utils import plot_latent, plot_latent_each_digit, plot_reconstructed
+from models.mnist.mnist_utils import (
+    plot_latent,
+    plot_latent_each_digit,
+    plot_reconstructed,
+)
 
 torch.manual_seed(0)
 

@@ -2,52 +2,27 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+from torchvision import transforms
 from tqdm import tqdm
 
-
-class DataSet(Dataset):
-    def __init__(self, data, transform=False):
-        self.X = data[0]
-        self.y = data[1]
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.X)
-
-    def __getitem__(self, index):
-        img = self.X[index].view(28, 28)
-        label = self.y[index]
-        if self.transform:
-            img = transforms.ToPILImage()(img)
-            img = self.transform(img)
-        return img, label
-
+from models.mnist.dataset_mnist import get_mnist_dataset
 
 # define transformation function for image data normalization
-transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+transform = transforms.Compose(
+    [
+        transforms.Normalize((0.5,), (0.5,))  # Normalize to [-0.5, 0.5]
+    ]
+)
 
 if torch.cuda.is_available():
     device = "cuda"
 else:
     device = "cpu"
 
-# prepare MNIST dataset
-train_dataset = datasets.MNIST(
-    root="./data", train=True, download=True, transform=transforms.ToTensor()
-)
-test_dataset = datasets.MNIST(root="./data", train=False, transform=transforms.ToTensor())
-
-# Preprocess training and test data
-x_train = train_dataset.data.reshape(-1, 784).float() / 255
-y_train = F.one_hot(train_dataset.targets, 10).float()
-x_test = test_dataset.data.reshape(-1, 784).float() / 255
-y_test = F.one_hot(test_dataset.targets, 10).float()
-
-# create train and test datasets
-trainset = DataSet([x_train, y_train], transform=transform)
-testset = DataSet([x_test, y_test], transform=transform)
+# Prepare MNIST dataset using custom implementation
+trainset = get_mnist_dataset(root="./data/MNIST", train=True, transform=transform)
+testset = get_mnist_dataset(root="./data/MNIST", train=False, transform=transform)
 
 # define batch size and create data loaders
 batch_size = 256
@@ -114,35 +89,111 @@ class Encoder(nn.Module):
         return self.conv_stack(x)
 
 
-# define vector quantization class
 class VectorQuantizer(nn.Module):
-    # define embedding layer in constructor
-    def __init__(self, n_e, e_dim, beta):
-        super(VectorQuantizer, self).__init__()
-        self.n_e = n_e
-        self.e_dim = e_dim
-        self.beta = beta
-        self.embedding = nn.Embedding(self.n_e, self.e_dim)
-        self.embedding.weight.data.uniform_(-1.0 / self.n_e, 1.0 / self.n_e)
+    """
+    Vector Quantizer module for VQ-VAE.
 
-    # quantize input vectors to nearest embedding vectors in forward pass
+    This module implements the core quantization mechanism that maps continuous
+    encoder outputs to a discrete latent space by finding the nearest embedding vector.
+
+    The embedding vectors form a learnable codebook (dictionary) that represents
+    the discrete latent space. Each encoding from the encoder is quantized to the
+    nearest embedding vector in this codebook.
+
+    Attributes:
+        n_e (int): Number of embedding vectors (codebook size)
+        e_dim (int): Dimension of each embedding vector
+        beta (float): Weight for the commitment loss
+        embedding (nn.Embedding): Codebook containing all embedding vectors
+                                  Shape: [n_e, e_dim]
+                                  This is the set of vectors in the latent space.
+    """
+
+    def __init__(self, n_e, e_dim, beta):
+        """
+        Initialize the Vector Quantizer.
+
+        Args:
+            n_e (int): Number of embedding vectors in the codebook (e.g., 512)
+            e_dim (int): Dimension of each embedding vector (e.g., 64)
+            beta (float): Weight for commitment loss (typically 0.25)
+        """
+        super(VectorQuantizer, self).__init__()
+        self.beta = beta
+
+        # Create the codebook: a learnable embedding matrix
+        # Shape: [n_e, e_dim] - This is the set of discrete vectors in the latent space
+        self.embedding = nn.Embedding(n_e, e_dim)
+        # Initialize embedding vectors uniformly
+        self.embedding.weight.data.uniform_(-1.0 / n_e, 1.0 / n_e)
+
+    @property
+    def number_of_embedding_vectors(self) -> int:
+        """Read-only property: Number of embedding vectors (codebook size)."""
+        return self.embedding.weight.shape[0]
+
+    @property
+    def embedding_dimension(self) -> int:
+        """Read-only property: Dimension of each embedding vector."""
+        return self.embedding.weight.shape[1]
+
     def forward(self, z):
+        """
+        Quantize continuous latent codes to the nearest embedding vectors.
+
+        Args:
+            z (Tensor): Continuous latent codes from encoder
+                       Shape: [batch_size, e_dim, height, width]
+
+        Returns:
+            _loss (Tensor): VQ loss (commitment loss + embedding loss)
+            z_q (Tensor): Quantized latent codes
+                         Shape: [batch_size, e_dim, height, width]
+            min_encodings (Tensor): One-hot encoded indices of nearest embeddings
+            min_encoding_indices (Tensor): Indices of nearest embedding vectors
+
+        Process:
+            1. Reshape z for distance calculation
+            2. Compute Euclidean distance from each z to all embedding vectors
+            3. Find nearest embedding for each z element
+            4. Replace z with quantized z_q (nearest embedding)
+            5. Compute VQ losses to optimize both encoder and codebook
+        """
+        # Permute z from [B, C, H, W] to [B, H, W, C] for processing
         z = z.permute(0, 2, 3, 1).contiguous()
-        z_flattened = z.view(-1, self.e_dim)
+        z_flattened = z.view(-1, self.embedding_dimension)  # [B*H*W, C]
+
+        # Calculate Euclidean distance between z_flattened and all embedding vectors
+        # d[i,j] = ||z_i - e_j||^2
         d = (
             torch.sum(z_flattened**2, dim=1, keepdim=True)
             + torch.sum(self.embedding.weight**2, dim=1)
             - 2 * torch.matmul(z_flattened, self.embedding.weight.t())
         )
+
+        # Find the index of the nearest embedding vector for each z
         min_encoding_indices = torch.argmin(d, dim=1).unsqueeze(1)
-        min_encodings = torch.zeros(min_encoding_indices.shape[0], self.n_e).to(device)
+        min_encodings = torch.zeros(
+            min_encoding_indices.shape[0], self.number_of_embedding_vectors
+        ).to(device)
         min_encodings.scatter_(1, min_encoding_indices, 1)
+
+        # Get the quantized values (nearest embedding vectors)
         z_q = torch.matmul(min_encodings, self.embedding.weight).view(z.shape)
+
+        # Compute VQ loss: commitment loss + embedding loss
+        # Commitment loss: encourages encoder output to stay close to chosen embedding
+        # Embedding loss: encourages embedding vectors to move towards encoder outputs
         _loss = torch.mean((z.detach() - z_q) ** 2) + self.beta * torch.mean(
             (z - z_q.detach()) ** 2
         )
+
+        # Straight-through estimator: copy gradients from z_q to z for backprop
         z_q = z + (z_q - z).detach()
+
+        # Permute back from [B, H, W, C] to [B, C, H, W]
         z_q = z_q.permute(0, 3, 1, 2).contiguous()
+
         return _loss, z_q, min_encodings, min_encoding_indices
 
 
@@ -168,8 +219,11 @@ class Decoder(nn.Module):
 class VQVAE(nn.Module):
     def __init__(self, h_dim, res_h_dim, n_res_layers, n_embeddings, embedding_dim, beta):
         super(VQVAE, self).__init__()
+
         self.encoder = Encoder(1, h_dim, n_res_layers, res_h_dim)
+        # output dimension of encoder: [batch_size, 128, height, width]
         self.pre_quantization_conv = nn.Conv2d(h_dim, embedding_dim, kernel_size=1, stride=1)
+        # output dimension of encoder: [batch_size, embedding_dim=64, height, width]
         self.vector_quantization = VectorQuantizer(n_embeddings, embedding_dim, beta)
         self.decoder = Decoder(embedding_dim, h_dim, n_res_layers, res_h_dim)
 
@@ -222,8 +276,12 @@ for i in range(epoch, max_epoch):
         test_loss += loss.item()
 
     # calculate and display losses for each epoch
-    dataset_size_train: int = len(trainloader.dataset) if hasattr(trainloader.dataset, '__len__') else 1
-    dataset_size_test: int = len(testloader.dataset) if hasattr(testloader.dataset, '__len__') else 1
+    dataset_size_train: int = (
+        len(trainloader.dataset) if hasattr(trainloader.dataset, "__len__") else 1
+    )
+    dataset_size_test: int = (
+        len(testloader.dataset) if hasattr(testloader.dataset, "__len__") else 1
+    )
     train_loss /= float(dataset_size_train)
     test_loss /= float(dataset_size_test)
     print("epock %d train_loss: %.5f test_loss: %.5f" % (i, train_loss, test_loss))

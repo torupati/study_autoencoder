@@ -31,6 +31,8 @@ jobs:
         uv pip install torch --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
         # Install remaining dependencies
         uv sync --all-groups
+        # Install package in editable mode to ensure imports work
+        uv pip install -e .
     
     - name: Lint and format with ruff
       run: |

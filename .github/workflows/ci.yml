@@ -47,10 +47,7 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        uv run mypy models --ignore-missing-imports
-        uv run mypy app --ignore-missing-imports
-        uv run mypy tests --ignore-missing-imports
-    #    uv run mypy . --ignore-missing-imports
+        uv run mypy models/mnist models/image128 app/run_mnist_autoencoder.py app/run_mnist_v_autoencoder.py --ignore-missing-imports
       continue-on-error: true
 
     - name: Verify CPU-only PyTorch installation

@@ -112,6 +112,8 @@ exclude = [
     "misc/",
     "build/",
     "dist/",
+    ".venv/",
+    "venv/",
 ]
 # Fix namespace collision by being explicit about packages
 namespace_packages = true

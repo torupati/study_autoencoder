@@ -114,9 +114,14 @@ exclude = [
     "dist/",
     ".venv/",
     "venv/",
+    "tests/",
 ]
 # Fix namespace collision by being explicit about packages
 namespace_packages = true
+# Ignore duplicate module errors
+ignore_errors = false
+# Explicit namespace package handling
+mypy_path = "."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

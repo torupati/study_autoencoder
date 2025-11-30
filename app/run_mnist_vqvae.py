@@ -13,15 +13,15 @@ import logging
 import os
 from pathlib import Path
 
-from tqdm import tqdm
 import torch
+import torchvision.transforms as transforms
+from torch import nn, optim
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.vqvae import VQVAE
 
-from torch import nn, optim
-import torchvision.transforms as transforms
 
 def setup_logging(log_file: str = "vqvae_mnist.log") -> logging.Logger:
     """Setup logging to both console and file.

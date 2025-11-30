@@ -107,7 +107,7 @@ def main(args):
         logger.warning(f"{pngfile=} exists. Training data projection onto latent space.")
     else:
         fig, ax = plt.subplots(1, 1)
-        im = plot_latent(ax, vae, train_data, 1000)
+        im = plot_latent(ax, vae, train_dataset, 1000)
         fig.colorbar(im, ax=ax, label="Digit")
         fig.savefig(pngfile)
         logger.info(f"save {pngfile=}")

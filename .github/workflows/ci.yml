@@ -44,10 +44,6 @@ jobs:
         echo "Testing import:"
         uv run python -c "from models.mnist.base_ae import Autoencoder; print('✅ Import successful')" || echo "❌ Import failed"
     
-    - name: Configure Python path
-      run: |
-        echo "PYTHONPATH=$PWD:$PYTHONPATH" >> $GITHUB_ENV
-    
     - name: Lint and format with ruff
       run: |
         echo "Python:"

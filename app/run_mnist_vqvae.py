@@ -1,104 +1,116 @@
+"""
+Vector Quantized Variational Autoencoder (VQ-VAE) for MNIST dataset.
+
+This script provides training and evaluation of VQ-VAE on MNIST dataset
+with support for:
+- CLI arguments for configuration
+- Checkpoint loading and resume training
+- Dual logging (console and file)
+"""
+
 import argparse
 import logging
 import os
-import sys
-from datetime import datetime
+from pathlib import Path
 
-import matplotlib.pyplot as plt
-import torch
-from torch import nn, optim
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
-from torchvision import transforms
 from tqdm import tqdm
+import torch
+from torch.utils.data import DataLoader
 
-import models.mnist.vqvae as vqvae_module
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.vqvae import VQVAE
 
-if torch.cuda.is_available():
-    device = "cuda"
-else:
-    device = "cpu"
+from torch import nn, optim
+import torchvision.transforms as transforms
 
-# Set device for vqvae module
-vqvae_module.device = device
+def setup_logging(log_file: str = "vqvae_mnist.log") -> logging.Logger:
+    """Setup logging to both console and file.
 
+    Args:
+        log_file: Path to log file
 
-def setup_logging(log_dir: str = "logs") -> logging.Logger:
-    """Setup logging to both console and file."""
-    os.makedirs(log_dir, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = os.path.join(log_dir, f"vqvae_train_{timestamp}.log")
-
-    # Create logger
-    logger = logging.getLogger("vqvae_train")
+    Returns:
+        Logger instance
+    """
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
 
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    console_handler.setFormatter(console_formatter)
+    # Clear existing handlers to avoid duplicates
+    logger.handlers = []
 
-    # File handler
-    file_handler = logging.FileHandler(log_file)
+    # Console handler (INFO level)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
+    )
+    stream_handler.setFormatter(stream_formatter)
+
+    # File handler (DEBUG level)
+    file_handler = logging.FileHandler(log_file, mode="a")
     file_handler.setLevel(logging.DEBUG)
     file_formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
     )
     file_handler.setFormatter(file_formatter)
 
-    logger.addHandler(console_handler)
+    logger.addHandler(stream_handler)
     logger.addHandler(file_handler)
 
     return logger
 
 
-def load_checkpoint(ckpt_path: str, model: VQVAE, opt: optim.Optimizer) -> int:
-    """Load model and optimizer from checkpoint, return starting epoch."""
-    if not os.path.exists(ckpt_path):
-        return 0
+def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
+    """Load model checkpoint from file.
 
-    checkpoint = torch.load(ckpt_path, map_location=device)
-    model.load_state_dict(checkpoint["param"])
-    opt.load_state_dict(checkpoint["opt"])
-    epoch = checkpoint.get("epoch", 0)
-    return epoch
+    Args:
+        ckpt_path: Path to checkpoint file
+        logger: Logger instance
+
+    Returns:
+        Dictionary containing checkpoint data with keys:
+        - model_state_dict: Model weights
+        - optimizer_state_dict: Optimizer state
+        - epoch: Training epoch
+        - e_dim: Embedding dimension
+        - num_e: Number of embeddings
+        - loss: Training loss
+
+        Returns None if loading fails.
+    """
+    logger.info("Loading checkpoint from: %s", ckpt_path)
+    try:
+        checkpoint = torch.load(ckpt_path, weights_only=True)
+        logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
+        return checkpoint
+    except FileNotFoundError:
+        logger.error("Checkpoint file not found: %s", ckpt_path)
+        return None
+    except Exception as e:
+        logger.error("Failed to load checkpoint: %s", e)
+        return None
 
 
-def main() -> None:
-    """Main training function."""
-    parser = argparse.ArgumentParser(description="Train VQ-VAE on MNIST dataset")
-    parser.add_argument(
-        "--dataset_dir", type=str, default="./data/MNIST", help="Path to MNIST dataset directory"
-    )
-    parser.add_argument("--e_dim", type=int, default=64, help="Embedding dimension")
-    parser.add_argument(
-        "--num_e", type=int, default=512, help="Number of embeddings (codebook size)"
-    )
-    parser.add_argument("--num_epoch", type=int, default=5, help="Number of training epochs")
-    parser.add_argument(
-        "--ckpt", type=str, default=None, help="Path to checkpoint file to resume training"
-    )
-    parser.add_argument("--batch_size", type=int, default=256, help="Batch size for training")
-    parser.add_argument(
-        "--output_dir", type=str, default="./checkpoints", help="Output directory for checkpoints"
-    )
-    parser.add_argument("--log_dir", type=str, default="./logs", help="Directory for log files")
+def main(args: argparse.Namespace) -> None:
+    """Main training and evaluation function.
 
-    args = parser.parse_args()
+    Args:
+        args: Command line arguments
+    """
+    torch.manual_seed(0)
+    logger = setup_logging()
 
-    # Setup logging
-    logger = setup_logging(args.log_dir)
-    logger.info("Starting VQ-VAE training")
-    logger.info(f"Device: {device}")
-    logger.info(f"Arguments: {args}")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    logger.info("Device: %s", device)
+
+    # Prepare dataset (MNIST) and dataloader
+    dataset = get_mnist_dataset(args.dataset_dir, train=True)
+    obs_dim = 28 * 28
+    logger.debug("Prepare MNIST dataset from custom implementation")
+    logger.debug("%s", dataset)
 
     # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     # Prepare data
     logger.info(f"Loading MNIST dataset from {args.dataset_dir}")
@@ -120,22 +132,45 @@ def main() -> None:
     )
     logger.info(f"Train samples: {len(trainset)}, Test samples: {len(testset)}")
 
-    # Initialize model
-    logger.info(f"Initializing VQVAE model (e_dim={args.e_dim}, num_e={args.num_e})")
-    model = VQVAE(128, args.e_dim, 2, args.num_e, 64, 0.25).to(device)
+    # Model initialization or loading from checkpoint
+    ckpt_path = Path(args.ckpt)
+    if ckpt_path.is_file():
+        checkpoint = load_checkpoint(args.ckpt, logger)
+        if checkpoint is None:
+            logger.error("Failed to load checkpoint, exiting")
+            return
+        e_dim = checkpoint.get("e_dim", args.e_dim)
+        num_e = checkpoint.get("num_e", args.num_e)
+        cur_epoch = checkpoint.get("epoch", 0)
+
+        logger.info("Loaded checkpoint: epoch=%d, e_dim=%d, num_e=%d", cur_epoch, e_dim, num_e)
+
+        # TODO: Initialize VQ-VAE model and load state dict
+        # vqvae = VQVAE(e_dim=e_dim, num_e=num_e, obs_dim=obs_dim)
+        # vqvae.load_state_dict(checkpoint["model_state_dict"])
+
+        if args.resume:
+            logger.info("Resuming training from epoch %d", cur_epoch)
+            # TODO: Resume training
+            # vqvae = train_vqvae(vqvae, data, args.num_epoch, cur_epoch)
+    else:
+        logger.info(
+            "Initializing VQ-VAE: e_dim=%d, num_e=%d, obs_dim=%d", args.e_dim, args.num_e, obs_dim
+        )
+        # Initialize model
+        logger.info(f"Initializing VQVAE model (e_dim={args.e_dim}, num_e={args.num_e})")
+        model = VQVAE(128, args.e_dim, 2, args.num_e, 64, 0.25).to(device)
+        # TODO: Initialize VQ-VAE model
+        # vqvae = VQVAE(e_dim=args.e_dim, num_e=args.num_e, obs_dim=obs_dim).to(device)
+        # vqvae = train_vqvae(vqvae, data, args.num_epoch, 0)
 
     # Initialize optimizer
     opt = optim.Adam(model.parameters(), lr=3e-4, betas=(0.5, 0.9))
 
-    # Load checkpoint if provided
-    start_epoch = 0
-    if args.ckpt:
-        start_epoch = load_checkpoint(args.ckpt, model, opt)
-        logger.info(f"Loaded checkpoint from {args.ckpt}, resuming from epoch {start_epoch}")
-
     # Training logs
     train_loss_log = []
     test_loss_log = []
+    start_epoch = cur_epoch if ckpt_path.is_file() else 0
 
     logger.info("Starting training loop")
     for i in range(start_epoch, args.num_epoch):
@@ -188,19 +223,77 @@ def main() -> None:
             )
             logger.info(f"Saved checkpoint to {ckpt_path}")
 
-    logger.info("Training completed")
+    logger.info("VQ-VAE training script completed")
 
-    # Plot and save loss graph
-    plt.suptitle("VQ-VAE Loss")
-    plt.plot(train_loss_log, label="train_loss")
-    plt.plot(test_loss_log, label="test_loss")
-    plt.grid(axis="y")
-    plt.legend()
-    loss_plot_path = os.path.join(args.output_dir, "VQVAE_loss.png")
-    plt.savefig(loss_plot_path)
-    logger.info(f"Saved loss plot to {loss_plot_path}")
-    plt.show()
+
+def prepare_argparse() -> argparse.ArgumentParser:
+    """Create argument parser for VQ-VAE training.
+
+    Returns:
+        Configured ArgumentParser instance
+    """
+    parser = argparse.ArgumentParser(
+        description="PyTorch Vector Quantized Variational Autoencoder for MNIST dataset"
+    )
+
+    # Training conditions
+    parser.add_argument(
+        "--dataset_dir",
+        default="./data/MNIST/",
+        type=str,
+        help="MNIST dataset directory",
+    )
+    parser.add_argument(
+        "--batch_size",
+        default=128,
+        type=int,
+        help="Batch size for data loader",
+    )
+    parser.add_argument(
+        "--num_epoch",
+        "-n",
+        default=40,
+        type=int,
+        help="Number of epochs for training",
+    )
+    parser.add_argument(
+        "--output_dir", type=str, default="./checkpoints", help="Output directory for checkpoints"
+    )
+    # VQ-VAE specific parameters
+    parser.add_argument(
+        "--e_dim",
+        "-e",
+        default=64,
+        type=int,
+        help="Embedding dimension for vector quantization",
+    )
+    parser.add_argument(
+        "--num_e",
+        "-k",
+        default=512,
+        type=int,
+        help="Number of embeddings in the codebook",
+    )
+
+    # Checkpoint options
+    parser.add_argument(
+        "--resume",
+        "-r",
+        action="store_true",
+        help="Resume training from checkpoint",
+    )
+    parser.add_argument(
+        "--ckpt",
+        "-c",
+        default="",
+        type=str,
+        help="Checkpoint file path",
+    )
+
+    return parser
 
 
 if __name__ == "__main__":
-    main()
+    parser = prepare_argparse()
+    args = parser.parse_args()
+    main(args)

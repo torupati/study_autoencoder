@@ -76,6 +76,9 @@ run-autoencoder: ## Run MNIST autoencoder
 run-vae: ## Run MNIST variational autoencoder
 	uv run python app/run_mnist_v_autoencoder.py
 
+run-vqvae: ## Run MNIST VQ-VAE
+	uv run python app/run_mnist_vqvae.py
+
 run-test-torch: ## Run PyTorch basic test
 	uv run python tests/test_torch_basic.py
 

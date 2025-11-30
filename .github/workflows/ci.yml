@@ -30,8 +30,6 @@ jobs:
         uv sync --all-groups --python ${{ matrix.python-version }}
         # Force reinstall CPU-only PyTorch to ensure no CUDA packages
         uv pip install --upgrade --force-reinstall torch --index-url https://download.pytorch.org/whl/cpu
-        # Install the project itself in editable mode
-        uv pip install -e .
     
     - name: Verify installation
       run: |
@@ -41,8 +39,14 @@ jobs:
         echo "Checking Python path:"
         uv run python -c "import sys; print('\n'.join(sys.path))"
         echo ""
-        echo "Testing import:"
-        uv run python -c "from models.mnist.base_ae import Autoencoder; print('✅ Import successful')" || echo "❌ Import failed"
+        echo "Listing current directory:"
+        ls -la
+        echo ""
+        echo "Checking models directory:"
+        ls -la models/
+        echo ""
+        echo "Testing import with PYTHONPATH:"
+        PYTHONPATH=$PWD uv run python -c "from models.mnist.base_ae import Autoencoder; print('✅ Import successful')" || echo "❌ Import failed"
     
     - name: Lint and format with ruff
       run: |
@@ -78,7 +82,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        PYTHONPATH=$PWD uv run pytest tests/ -v --tb=short
+        uv run pytest tests/ -v --tb=short
 
     - name: Test PyTorch basic functionality
       run: |

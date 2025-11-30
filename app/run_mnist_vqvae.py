@@ -10,13 +10,9 @@ with support for:
 
 import argparse
 import logging
-from os import path
 from pathlib import Path
 
 import torch
-
-torch.manual_seed(0)
-import matplotlib.pyplot as plt
 import torch.utils
 
 from models.mnist.dataset_mnist import get_mnist_dataset
@@ -59,7 +55,7 @@ def setup_logging(log_file: str = "vqvae_mnist.log") -> logging.Logger:
     return logger
 
 
-def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict:
+def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
     """Load model checkpoint from file.
 
     Args:
@@ -74,11 +70,20 @@ def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict:
         - e_dim: Embedding dimension
         - num_e: Number of embeddings
         - loss: Training loss
+
+        Returns None if loading fails.
     """
     logger.info("Loading checkpoint from: %s", ckpt_path)
-    checkpoint = torch.load(ckpt_path, weights_only=True)
-    logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
-    return checkpoint
+    try:
+        checkpoint = torch.load(ckpt_path, weights_only=True)
+        logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
+        return checkpoint
+    except FileNotFoundError:
+        logger.error("Checkpoint file not found: %s", ckpt_path)
+        return None
+    except Exception as e:
+        logger.error("Failed to load checkpoint: %s", e)
+        return None
 
 
 def main(args: argparse.Namespace) -> None:
@@ -87,6 +92,7 @@ def main(args: argparse.Namespace) -> None:
     Args:
         args: Command line arguments
     """
+    torch.manual_seed(0)
     logger = setup_logging()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -102,8 +108,12 @@ def main(args: argparse.Namespace) -> None:
     logger.info("Data loader created with batch size=%d", args.batch_size)
 
     # Model initialization or loading from checkpoint
-    if path.isfile(args.ckpt):
+    ckpt_path = Path(args.ckpt)
+    if ckpt_path.is_file():
         checkpoint = load_checkpoint(args.ckpt, logger)
+        if checkpoint is None:
+            logger.error("Failed to load checkpoint, exiting")
+            return
         e_dim = checkpoint.get("e_dim", args.e_dim)
         num_e = checkpoint.get("num_e", args.num_e)
         cur_epoch = checkpoint.get("epoch", 0)

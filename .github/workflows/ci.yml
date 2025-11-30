@@ -24,13 +24,12 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
     
-    - name: Install dependencies (CPU-only PyTorch)
+    - name: Install dependencies
       run: |
-        uv venv --python ${{ matrix.python-version }}
-        # Install CPU-only PyTorch with uv directly
-        uv pip install torch --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
-        # Install project and all dependencies in editable mode
-        uv pip install -e ".[dev]"
+        # Create venv and install all dependencies including dev
+        uv sync --all-groups --python ${{ matrix.python-version }}
+        # Force reinstall CPU-only PyTorch to ensure no CUDA packages
+        uv pip install --upgrade --force-reinstall torch --index-url https://download.pytorch.org/whl/cpu
     
     - name: Lint and format with ruff
       run: |

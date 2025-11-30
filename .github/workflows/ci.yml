@@ -33,6 +33,17 @@ jobs:
         # Install the project itself in editable mode
         uv pip install -e .
     
+    - name: Verify installation
+      run: |
+        echo "Checking installed packages:"
+        uv pip list | grep -E "study-autoencoder|torch|pytest"
+        echo ""
+        echo "Checking Python path:"
+        uv run python -c "import sys; print('\n'.join(sys.path))"
+        echo ""
+        echo "Testing import:"
+        uv run python -c "from models.mnist.base_ae import Autoencoder; print('✅ Import successful')" || echo "❌ Import failed"
+    
     - name: Configure Python path
       run: |
         echo "PYTHONPATH=$PWD:$PYTHONPATH" >> $GITHUB_ENV
@@ -71,7 +82,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        uv run pytest tests/ -v --tb=short
+        PYTHONPATH=$PWD uv run pytest tests/ -v --tb=short
 
     - name: Test PyTorch basic functionality
       run: |

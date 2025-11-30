@@ -33,12 +33,14 @@ def main(args):
     logger.info("device=%s is used for pytorch", device)
 
     # Prepare dataset (MNIST) and dataloader
-    dataset = get_mnist_dataset(args.dataset_dir, train=True)
+    train_dataset = get_mnist_dataset(args.dataset_dir, train=True)
+    test_dataset = get_mnist_dataset(args.dataset_dir, train=False)
     obs_dim = 28 * 28
     logger.debug("prepare MNIST dataset from custom implementation")
-    logger.debug("%s", dataset)
-    data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    logger.info(f"data logader. batch size={args.batch_size}")
+    logger.debug("%s", train_dataset)
+    train_data = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    test_data = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    logger.info(f"data loader. batch size={args.batch_size}")
 
     if path.isfile(args.ckpt):
         ckpt_file = args.ckpt
@@ -50,21 +52,21 @@ def main(args):
         ae.load_state_dict(ckpts["model_state_dict"])
         _cur_epoch = ckpts["epoch"]
         if args.resume:
-            vae = train(vae, data, args.num_epoch, _cur_epoch)
+            ae = train(ae, train_data, args.num_epoch, _cur_epoch, test_data=test_data)
     else:
         latent_dim = args.latent_dim
         logger.info("initialize autoencoder, latent dimension=%d", latent_dim)
         ae = Autoencoder(latent_dim, obs_dim).to(device)
-        ae = train(ae, data, args.num_epoch, 0)
+        ae = train(ae, train_data, args.num_epoch, 0, test_data=test_data)
 
     fig, ax = plt.subplots(1, 1)
-    ax = plot_latent_each_digit(ax, ae, dataset)
+    ax = plot_latent_each_digit(ax, ae, train_dataset)
     pngfile = "ae_latent_each_digit.png"
     fig.savefig(pngfile)
     logger.info(f"save {pngfile}")
 
     fig, ax = plt.subplots(1, 1)
-    ax = plot_latent(ax, ae, dataset, 100)
+    ax = plot_latent(ax, ae, train_dataset, 100)
     fig.savefig("ae_latent_space_projection.png")
 
     fig, ax = plt.subplots(1, 1)

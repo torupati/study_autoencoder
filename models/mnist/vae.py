@@ -123,7 +123,7 @@ def train_vae(
         test_data (torch.DataLoader, optional): DataLoader for test set evaluation. Defaults to None.
 
     Returns:
-        VariationalAutoencoder: Trained VAE model
+        VariationalAutoencoder: trained VAE model
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     opt = torch.optim.Adam(autoencoder.parameters())

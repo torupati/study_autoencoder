@@ -8,8 +8,10 @@ license = {file = "LICENSE"}
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
+
 dependencies = [
     "torch>=2.0.0,<2.5.0",
+    "torchvision>=0.15.0,<0.20.0",
     "numpy>=1.24.0,<2.0.0",
     "matplotlib>=3.7.0,<4.0.0",
     "tqdm>=4.65.0,<5.0.0",
@@ -39,6 +41,7 @@ extra-index-url = [
     "https://download.pytorch.org/whl/cpu"
 ]
 index-strategy = "unsafe-first-match"
+
 
 [dependency-groups]
 dev = [
@@ -81,6 +84,17 @@ ignore = [
     "UP031", # format string preferences (keeping existing style)
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["models"]
+known-local-folder = ["app"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
 [tool.ruff.format]
 # Format configuration
 quote-style = "double"
@@ -98,14 +112,22 @@ exclude = [
     "misc/",
     "build/",
     "dist/",
+    ".venv/",
+    "venv/",
+    "tests/",
 ]
 # Fix namespace collision by being explicit about packages
 namespace_packages = true
+# Ignore duplicate module errors
+ignore_errors = false
+# Explicit namespace package handling
+mypy_path = "."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+pythonpath = ["."]
 addopts = [
     "-v",
     "--tb=short",

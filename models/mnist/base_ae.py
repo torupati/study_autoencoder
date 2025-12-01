@@ -14,8 +14,8 @@ class Autoencoder(nn.Module):
 
     Note
     ----
-    This implementatoin is assuming input feature is a real value between 0 and 1.
-    Therefore sigmoid function is used at the last of decoder's sequence.
+    This implementation assumes input features are normalized to the range [-1, 1].
+    The decoder uses tanh activation to constrain outputs to [-1, 1], matching the input distribution.
     """
 
     @staticmethod
@@ -40,6 +40,11 @@ class Autoencoder(nn.Module):
 
     @staticmethod
     class Decoder(nn.Module):
+        """
+        Decoder which takes latent variable and reconstructs the input.
+        Uses tanh activation to output values in [-1, 1] range.
+        """
+
         def __init__(self, latent_dims: int, obs_dim: int):
             super(Autoencoder.Decoder, self).__init__()
             self.linear1 = nn.Linear(latent_dims, 512)
@@ -47,10 +52,8 @@ class Autoencoder(nn.Module):
 
         def forward(self, z):
             z = F.relu(self.linear1(z))
-            z = torch.sigmoid(self.linear2(z))
+            z = torch.tanh(self.linear2(z))  # Output in [-1, 1]
             return z
-
-        # return z.reshape((-1, 1, 28, 28))
 
     def __init__(self, latent_dims: int, obs_dim: int):
         super(Autoencoder, self).__init__()

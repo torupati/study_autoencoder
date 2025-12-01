@@ -29,6 +29,19 @@ install-cpu: ## Force install CPU-only PyTorch (removes any existing CUDA packag
 	uv venv --python $(PYTHON_VERSION)
 	uv sync
 
+install-cuda: ## Install CUDA 12 PyTorch
+	rm -rf .venv uv.lock
+	uv venv --python $(PYTHON_VERSION)
+	UV_INDEX_URL="https://download.pytorch.org/whl/cu121" \
+	UV_EXTRA_INDEX_URL="https://pypi.org/simple" \
+	uv sync
+
+sync: ## Sync dependencies with current environment
+	uv sync
+
+install-dev:
+	uv sync --all-extras
+
 test: ## Run tests
 	uv run pytest tests/ -v
 
@@ -62,6 +75,9 @@ run-autoencoder: ## Run MNIST autoencoder
 
 run-vae: ## Run MNIST variational autoencoder
 	uv run python app/run_mnist_v_autoencoder.py
+
+run-vqvae: ## Run MNIST VQ-VAE
+	uv run python app/run_mnist_vqvae.py
 
 run-test-torch: ## Run PyTorch basic test
 	uv run python tests/test_torch_basic.py

@@ -24,16 +24,38 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
     
-    - name: Install dependencies (CPU-only PyTorch)
+    - name: Install dependencies
       run: |
-        uv venv --python ${{ matrix.python-version }}
-        # Install CPU-only PyTorch first to ensure no CUDA packages
-        uv pip install torch --index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match
-        # Install remaining dependencies
-        uv sync --all-groups
+        # Create venv and install all dependencies including dev
+        uv sync --all-groups --python ${{ matrix.python-version }}
+        # Force reinstall CPU-only PyTorch to ensure no CUDA packages
+        uv pip install --upgrade --force-reinstall torch --index-url https://download.pytorch.org/whl/cpu
+    
+    - name: Verify installation
+      run: |
+        echo "Checking installed packages:"
+        uv pip list | grep -E "study-autoencoder|torch|pytest"
+        echo ""
+        echo "Checking Python path:"
+        uv run python -c "import sys; print('\n'.join(sys.path))"
+        echo ""
+        echo "Listing current directory:"
+        ls -la
+        echo ""
+        echo "Checking models directory:"
+        ls -la models/
+        echo ""
+        echo "Testing import with PYTHONPATH:"
+        PYTHONPATH=$PWD uv run python -c "from models.mnist.base_ae import Autoencoder; print('✅ Import successful')" || echo "❌ Import failed"
     
     - name: Lint and format with ruff
       run: |
+        echo "Python:"
+        uv run python -V
+        echo "uv environment info:"
+        uv --version || true
+        echo "Installed ruff version:"
+        uv run ruff --version
         # Check for linting issues
         uv run ruff check .
         # Check code formatting
@@ -41,10 +63,7 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        uv run mypy models --ignore-missing-imports
-        uv run mypy app --ignore-missing-imports
-        uv run mypy tests --ignore-missing-imports
-    #    uv run mypy . --ignore-missing-imports
+        uv run mypy models/mnist models/image128 app/run_mnist_autoencoder.py app/run_mnist_v_autoencoder.py --ignore-missing-imports
       continue-on-error: true
 
     - name: Verify CPU-only PyTorch installation

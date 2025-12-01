@@ -94,7 +94,7 @@ def train_vae(autoencoder, data, epochs=20, start_epoch: int = 0, save_model_tra
         save_model_train (bool, optional): _description_. Defaults to False.
 
     Returns:
-        _type_: VAE
+        VariationalAutoencoder: trained VAE model
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     opt = torch.optim.Adam(autoencoder.parameters())

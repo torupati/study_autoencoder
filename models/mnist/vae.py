@@ -110,7 +110,12 @@ def evaluate_vae(autoencoder, data):
 
 
 def train_vae(
-    autoencoder, data, epochs=20, start_epoch: int = 0, save_model_train: bool = False, test_data=None
+    autoencoder,
+    data,
+    epochs=20,
+    start_epoch: int = 0,
+    save_model_train: bool = False,
+    test_data=None,
 ):
     """Training VAE from given data
 

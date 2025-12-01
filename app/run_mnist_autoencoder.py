@@ -42,7 +42,9 @@ def main(args):
     obs_dim = 28 * 28
     logger.debug("prepare MNIST dataset from custom implementation")
     logger.debug("%s", train_dataset)
-    train_data = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    train_data = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=True
+    )
     test_data = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
     logger.info(f"data loader. batch size={args.batch_size}")
 

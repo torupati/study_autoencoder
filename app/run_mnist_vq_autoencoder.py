@@ -41,9 +41,7 @@ def main(args):
     train_data = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True
     )
-    test_data = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False
-    )
+    test_data = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
     logger.info(f"data loader. batch size={args.batch_size}")
 
     if path.isfile(args.ckpt):

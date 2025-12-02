@@ -1,21 +1,28 @@
 """
-Variational Autoencoder for MNIST dataset
+Variational Autoencoder for MNIST dataset.
 
-This is based on (almost copied from) this awsome page.
+This script provides training and evaluation of VAE on MNIST dataset
+with support for:
+- CLI arguments for configuration
+- Checkpoint loading and resume training
+- Dual logging (console and file)
+- Training with both train and test datasets
+
+This is based on (almost copied from) this awesome page.
 https://avandekleut.github.io/vae/
 """
 
 import argparse
 import logging
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
-import torch.distributions
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.utils
+import torchvision.transforms as transforms
+from torch import optim
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.mnist_utils import (
@@ -23,133 +30,364 @@ from models.mnist.mnist_utils import (
     plot_latent_each_digit,
     plot_reconstructed,
 )
-from models.mnist.vae import VariationalAutoencoder, train_vae
-
-torch.manual_seed(0)
-
-logger = logging.getLogger(__name__)
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s",
-    handlers=[logging.FileHandler("vae_mnist.log", mode="w"), stream_handler],
-)
+from models.mnist.vae import VariationalAutoencoder
 
 
-def plot_latent_each_digit0(autoencoder, data):
+def setup_logging(log_file: str = "vae_mnist.log") -> logging.Logger:
+    """Setup logging to both console and file.
+
+    Args:
+        log_file: Path to log file
+
+    Returns:
+        Logger instance
     """
-    Plot latent variable z in plane (1st and 2nd dim by default)
-    """
-    _device = next(autoencoder.parameters()).device.type
-    fig, ax = plt.subplots(2, 5)
-    fig.suptitle("Sample Projection on Latent Space")
-    for y_digit in range(0, 10):
-        ax_i, ax_j = y_digit // 5, y_digit % 5
-        for i, (x, y) in enumerate(data):
-            x = x[y == y_digit]
-            y = y[y == y_digit]
-            z = autoencoder.encoder(x.to(_device))
-            z = z.to("cpu").detach().numpy()
-            im = ax[ax_i, ax_j].scatter(z[:, 0], z[:, 1], c=y, cmap="tab10")
-        ax[ax_i, ax_j].grid(True)
-        ax[ax_i, ax_j].set_xlim([-3, 3])
-        ax[ax_i, ax_j].set_ylim([-3, 3])
-        ax[ax_i, ax_j].set_aspect("equal")
-        ax[ax_i, ax_j].set_xlabel(r"$z_1$")
-        ax[ax_i, ax_j].set_ylabel(r"$z_2$")
-        ax[ax_i, ax_j].set_title(f"{y_digit}")
-    return fig
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
 
+    # Clear existing handlers to avoid duplicates
+    logger.handlers = []
 
-def main(args):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    logger.info("device=%s is used for pytorch", device)
-
-    # Prepare dataset (MNIST) and dataloader
-    train_dataset = get_mnist_dataset(args.dataset_dir, train=True)
-    test_dataset = get_mnist_dataset(args.dataset_dir, train=False)
-    obs_dim = 28 * 28
-    logger.debug("prepare MNIST dataset from custom implementation")
-    logger.debug("%s", train_dataset)
-
-    train_data = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True
+    # Console handler (INFO level)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
     )
-    test_data = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
-    logger.info(f"data loader. batch size={args.batch_size}")
+    stream_handler.setFormatter(stream_formatter)
 
-    if Path(args.ckpt).is_file():
-        ckpt_file = args.ckpt
-        logger.info("load from checkpoint: %s", ckpt_file)
-        ckpts = torch.load(ckpt_file, weights_only=True)
-        print(ckpts.keys())
-        _dim = ckpts["latent_dims"]
-        vae = VariationalAutoencoder(_dim, obs_dim)
-        vae.load_state_dict(ckpts["model_state_dict"])
-        _cur_epoch = ckpts["epoch"]
-        logger.info("resume: %s", args.resume)
+    # File handler (DEBUG level)
+    file_handler = logging.FileHandler(log_file, mode="a")
+    file_handler.setLevel(logging.DEBUG)
+    file_formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
+    )
+    file_handler.setFormatter(file_formatter)
+
+    logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
+    """Load model checkpoint from file.
+
+    Args:
+        ckpt_path: Path to checkpoint file
+        logger: Logger instance
+
+    Returns:
+        Dictionary containing checkpoint data, or None if loading fails
+    """
+    logger.info("Loading checkpoint from: %s", ckpt_path)
+    try:
+        checkpoint = torch.load(ckpt_path, weights_only=True)
+        logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
+        return checkpoint
+    except FileNotFoundError:
+        logger.error("Checkpoint file not found: %s", ckpt_path)
+        return None
+    except Exception as e:
+        logger.error("Failed to load checkpoint: %s", e)
+        return None
+
+
+def train_vae_new(
+    model: VariationalAutoencoder,
+    optimizer: optim.Optimizer,
+    trainloader: DataLoader,
+    testloader: DataLoader,
+    start_epoch: int,
+    num_epochs: int,
+    output_dir: str,
+    device: str,
+    logger: logging.Logger,
+) -> tuple[list[float], list[float]]:
+    """Train VAE model for multiple epochs.
+
+    Args:
+        model: VariationalAutoencoder model instance
+        optimizer: Optimizer for training
+        trainloader: DataLoader for training data
+        testloader: DataLoader for test data
+        start_epoch: Starting epoch number
+        num_epochs: Total number of epochs to train
+        output_dir: Directory to save checkpoints
+        device: Device to run training on ('cuda' or 'cpu')
+        logger: Logger instance
+
+    Returns:
+        Tuple of (train_loss_log, test_loss_log) containing loss values for each epoch
+    """
+    train_loss_log: list[float] = []
+    test_loss_log: list[float] = []
+
+    for i in range(start_epoch, num_epochs):
+        logger.info(f"Epoch {i + 1}/{num_epochs}")
+        train_loss: float = 0.0
+        test_loss: float = 0.0
+        model = model.to(device)
+
+        # Training phase
+        model.train()
+        for img, _ in tqdm(trainloader, desc="Training"):
+            img = img.to(device, dtype=torch.float)
+            optimizer.zero_grad()
+            img_flat = torch.flatten(img, start_dim=1)
+            img_hat = model(img_flat)
+            loss = ((img_flat - img_hat) ** 2).sum() + model.encoder.kl
+            train_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+
+        # Evaluation phase
+        model.eval()
+        with torch.no_grad():
+            for img_t, _ in tqdm(testloader, desc="Testing"):
+                img = img_t.to(device, dtype=torch.float)
+                img_flat = torch.flatten(img, start_dim=1)
+                img_hat = model(img_flat)
+                loss = ((img_flat - img_hat) ** 2).sum() + model.encoder.kl
+                test_loss += loss.item()
+
+        # Calculate average losses
+        dataset_size_train: int = (
+            len(trainloader.dataset) if hasattr(trainloader.dataset, "__len__") else 1
+        )
+        dataset_size_test: int = (
+            len(testloader.dataset) if hasattr(testloader.dataset, "__len__") else 1
+        )
+        train_loss /= float(dataset_size_train)
+        test_loss /= float(dataset_size_test)
+
+        # Log and record losses
+        log_msg = f"Epoch {i} - train_loss: {train_loss:.5f}, test_loss: {test_loss:.5f}"
+        logger.info(log_msg)
+        train_loss_log.append(train_loss)
+        test_loss_log.append(test_loss)
+
+        # Save checkpoint every 10 epochs
+        if (i + 1) % 10 == 0:
+            ckpt_path = os.path.join(output_dir, f"checkpoint_vae_train_epoch{i:03d}.pth")
+            torch.save(
+                {
+                    "epoch": i + 1,
+                    "model_state_dict": model.to("cpu").state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "latent_dims": model.latent_dims,
+                    "train_loss": train_loss,
+                    "test_loss": test_loss,
+                },
+                ckpt_path,
+            )
+            logger.info(f"Saved checkpoint to {ckpt_path}")
+
+    return train_loss_log, test_loss_log
+
+
+def plot_loss(
+    train_loss_log: list[float],
+    test_loss_log: list[float],
+    output_dir: str,
+    logger: logging.Logger,
+) -> None:
+    """Plot and save training/test loss curves.
+
+    Args:
+        train_loss_log: List of training losses
+        test_loss_log: List of test losses
+        output_dir: Directory to save the plot
+        logger: Logger instance
+    """
+    plt.figure(figsize=(10, 6))
+    plt.suptitle("VAE Loss")
+    plt.plot(train_loss_log, label="train_loss", marker="o")
+    plt.plot(test_loss_log, label="test_loss", marker="s")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.grid(axis="y", alpha=0.3)
+    plt.legend()
+
+    loss_plot_path = os.path.join(output_dir, "vae_loss.png")
+    plt.savefig(loss_plot_path, dpi=100, bbox_inches="tight")
+    logger.info(f"Saved loss plot to {loss_plot_path}")
+    plt.show()
+
+
+def main(args: argparse.Namespace) -> None:
+    """Main training and evaluation function.
+
+    Args:
+        args: Command line arguments
+    """
+    torch.manual_seed(0)
+    logger = setup_logging()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    logger.info("Device: %s", device)
+
+    # Create output directory
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Prepare data
+    logger.info(f"Loading MNIST dataset from {args.dataset_dir}")
+    transform = transforms.Compose(
+        [
+            transforms.Normalize((0.5,), (0.5,))
+            # Normalize to [-1, 1] range
+        ]
+    )
+
+    trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
+    testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+
+    trainloader = DataLoader(
+        trainset, batch_size=args.batch_size, drop_last=True, shuffle=True, num_workers=0
+    )
+    testloader = DataLoader(
+        testset, batch_size=args.batch_size, drop_last=False, shuffle=False, num_workers=0
+    )
+    logger.info(f"Train samples: {len(trainset)}, Test samples: {len(testset)}")
+
+    # Model initialization or loading from checkpoint
+    ckpt_path = Path(args.ckpt)
+    start_epoch = 0
+    cur_latent_dims = args.latent_dims
+
+    if ckpt_path.is_file():
+        checkpoint = load_checkpoint(args.ckpt, logger)
+        if checkpoint is None:
+            logger.error("Failed to load checkpoint, exiting")
+            return
+        cur_latent_dims = checkpoint.get("latent_dims", args.latent_dims)
+        start_epoch = checkpoint.get("epoch", 0)
+
+        logger.info("Loaded checkpoint: epoch=%d, latent_dims=%d", start_epoch, cur_latent_dims)
+
+        # Initialize model and load state
+        logger.info(f"Initializing VAE (latent_dims={cur_latent_dims})")
+        vae = VariationalAutoencoder(cur_latent_dims, 28 * 28).to(device)
+        vae.load_state_dict(checkpoint["model_state_dict"])
+
         if args.resume:
-            vae = train_vae(vae, train_data, args.num_epoch, _cur_epoch, True, test_data=test_data)
+            logger.info("Resuming training from epoch %d", start_epoch)
     else:
-        latent_dims = args.latent_dims
-        logger.debug("latent dimension=%d", latent_dims)
-        vae = VariationalAutoencoder(latent_dims, obs_dim).to(device)
-        vae = train_vae(vae, train_data, args.num_epoch, 0, True, test_data=test_data)
+        logger.info("Initializing VAE: latent_dims=%d", args.latent_dims)
+        vae = VariationalAutoencoder(args.latent_dims, 28 * 28).to(device)
 
-    pngfile = "vae_latent_each_digit.png"
-    if Path(pngfile).exists():
-        logger.warning(f"{pngfile=} exists. Skip plot latent digit")
-    else:
-        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-        ax = plot_latent_each_digit(ax, vae, train_dataset)
-        fig.savefig(pngfile)
-        logger.info(f"save {pngfile=}")
+    # Initialize optimizer
+    opt = optim.Adam(vae.parameters())
 
-    pngfile = "vae_latent_space_projection.png"
-    if Path(pngfile).exists():
-        logger.warning(f"{pngfile=} exists. Training data projection onto latent space.")
-    else:
-        fig, ax = plt.subplots(1, 1)
-        im = plot_latent(ax, vae, train_dataset, 1000)
-        fig.colorbar(im, ax=ax, label="Digit")
-        fig.savefig(pngfile)
-        logger.info(f"save {pngfile=}")
+    # Training
+    train_loss_log = []
+    test_loss_log = []
 
-    pngfile = "vae_reconstructed.png"
+    logger.info("Starting training loop")
+    train_loss_log, test_loss_log = train_vae_new(
+        model=vae,
+        optimizer=opt,
+        trainloader=trainloader,
+        testloader=testloader,
+        start_epoch=start_epoch,
+        num_epochs=args.num_epoch,
+        output_dir=args.output_dir,
+        device=device,
+        logger=logger,
+    )
+
+    # Plot and save loss curves
+    plot_loss(train_loss_log, test_loss_log, args.output_dir, logger)
+
+    # Visualization
+    logger.info("Generating visualizations")
+    fig, ax = plt.subplots(1, 1)
+    ax = plot_latent_each_digit(ax, vae, trainset)
+    pngfile = os.path.join(args.output_dir, "vae_latent_each_digit.png")
+    fig.savefig(pngfile)
+    logger.info(f"Saved {pngfile}")
+
+    fig, ax = plt.subplots(1, 1)
+    im = plot_latent(ax, vae, trainset, 1000)
+    fig.colorbar(im, ax=ax, label="Digit")
+    pngfile = os.path.join(args.output_dir, "vae_latent_space_projection.png")
+    fig.savefig(pngfile)
+    logger.info(f"Saved {pngfile}")
+
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     im = plot_reconstructed(ax, vae, r0=(-3, 3), r1=(-3, 3))
     fig.colorbar(im, ax=ax)
+    pngfile = os.path.join(args.output_dir, "vae_reconstructed.png")
     fig.savefig(pngfile)
+    logger.info(f"Saved {pngfile}")
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
     im = plot_reconstructed(ax, vae, r0=(-1, 1), r1=(-1, 1))
     fig.colorbar(im, ax=ax)
-    fig.savefig("vae_reconstructed2.png")
+    pngfile = os.path.join(args.output_dir, "vae_reconstructed2.png")
+    fig.savefig(pngfile)
+    logger.info(f"Saved {pngfile}")
+
+    logger.info("VAE training script completed")
 
 
-def prepare_argparse():
+def prepare_argparse() -> argparse.ArgumentParser:
+    """Create argument parser for VAE training.
+
+    Returns:
+        Configured ArgumentParser instance
+    """
     parser = argparse.ArgumentParser(
         description="PyTorch Variational Autoencoder for MNIST dataset"
     )
-    # training condition
+
+    # Training conditions
     parser.add_argument(
-        "--dataset_dir", default="./data/MNIST/", type=str, help="MNIST dataset directory"
+        "--dataset_dir",
+        default="./data/MNIST/",
+        type=str,
+        help="MNIST dataset directory",
     )
-    parser.add_argument("--batch_size", default=128, type=int, help="batch size of data loader")
     parser.add_argument(
-        "--num_epoch", "-n", default=40, type=int, help="number of epoch for training"
+        "--batch_size",
+        default=128,
+        type=int,
+        help="Batch size for data loader",
     )
-    # model initialization/loading
+    parser.add_argument(
+        "--num_epoch",
+        "-n",
+        default=40,
+        type=int,
+        help="Number of epochs for training",
+    )
+    parser.add_argument(
+        "--output_dir", type=str, default="./checkpoints", help="Output directory for checkpoints"
+    )
+    # Model parameters
     parser.add_argument(
         "--latent_dims",
         "-d",
         default=2,
         type=int,
-        help="Latent variable dimension. Ignored when pretrained model is loaded",
+        help="Latent variable dimension",
     )
-    parser.add_argument("--resume", "-r", action="store_true", help="resume from checkpoint")
-    parser.add_argument("--ckpt", "-c", default="", type=str, help="checkpoint file path")
+
+    # Checkpoint options
+    parser.add_argument(
+        "--resume",
+        "-r",
+        action="store_true",
+        help="Resume training from checkpoint",
+    )
+    parser.add_argument(
+        "--ckpt",
+        "-c",
+        default="",
+        type=str,
+        help="Checkpoint file path",
+    )
+
     return parser
 
 

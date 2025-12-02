@@ -20,6 +20,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from models.checkpoint import load_checkpoint
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.vqvae import VQVAE
 
@@ -59,37 +60,6 @@ def setup_logging(log_file: str = "vqvae_mnist.log") -> logging.Logger:
     logger.addHandler(file_handler)
 
     return logger
-
-
-def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
-    """Load model checkpoint from file.
-
-    Args:
-        ckpt_path: Path to checkpoint file
-        logger: Logger instance
-
-    Returns:
-        Dictionary containing checkpoint data with keys:
-        - model_state_dict: Model weights
-        - optimizer_state_dict: Optimizer state
-        - epoch: Training epoch
-        - e_dim: Embedding dimension
-        - num_e: Number of embeddings
-        - loss: Training loss
-
-        Returns None if loading fails.
-    """
-    logger.info("Loading checkpoint from: %s", ckpt_path)
-    try:
-        checkpoint = torch.load(ckpt_path, weights_only=True)
-        logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
-        return checkpoint
-    except FileNotFoundError:
-        logger.error("Checkpoint file not found: %s", ckpt_path)
-        return None
-    except Exception as e:
-        logger.error("Failed to load checkpoint: %s", e)
-        return None
 
 
 def train_vqvae(
@@ -204,7 +174,7 @@ def plot_loss(
     plt.ylabel("Loss")
     plt.grid(axis="y", alpha=0.3)
     plt.legend()
-    
+
     loss_plot_path = os.path.join(output_dir, "VQVAE_loss.png")
     plt.savefig(loss_plot_path, dpi=100, bbox_inches="tight")
     logger.info(f"Saved loss plot to {loss_plot_path}")

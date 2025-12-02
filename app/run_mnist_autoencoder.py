@@ -21,6 +21,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from models.checkpoint import load_checkpoint
 from models.mnist.base_ae import Autoencoder
 from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.mnist_utils import (
@@ -65,29 +66,6 @@ def setup_logging(log_file: str = "autoencoder_mnist.log") -> logging.Logger:
     logger.addHandler(file_handler)
 
     return logger
-
-
-def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
-    """Load model checkpoint from file.
-
-    Args:
-        ckpt_path: Path to checkpoint file
-        logger: Logger instance
-
-    Returns:
-        Dictionary containing checkpoint data, or None if loading fails
-    """
-    logger.info("Loading checkpoint from: %s", ckpt_path)
-    try:
-        checkpoint = torch.load(ckpt_path, weights_only=True)
-        logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
-        return checkpoint
-    except FileNotFoundError:
-        logger.error("Checkpoint file not found: %s", ckpt_path)
-        return None
-    except Exception as e:
-        logger.error("Failed to load checkpoint: %s", e)
-        return None
 
 
 def train_autoenc(
@@ -325,9 +303,7 @@ def prepare_argparse() -> argparse.ArgumentParser:
     Returns:
         Configured ArgumentParser instance
     """
-    parser = argparse.ArgumentParser(
-        description="PyTorch Autoencoder for MNIST dataset"
-    )
+    parser = argparse.ArgumentParser(description="PyTorch Autoencoder for MNIST dataset")
 
     # Training conditions
     parser.add_argument(

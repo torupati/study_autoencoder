@@ -13,6 +13,7 @@ import logging
 import os
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import torch
 import torchvision.transforms as transforms
 from torch import nn, optim
@@ -89,6 +90,125 @@ def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
     except Exception as e:
         logger.error("Failed to load checkpoint: %s", e)
         return None
+
+
+def train_vqvae(
+    model: VQVAE,
+    optimizer: optim.Optimizer,
+    trainloader: DataLoader,
+    testloader: DataLoader,
+    start_epoch: int,
+    num_epochs: int,
+    output_dir: str,
+    device: str,
+    logger: logging.Logger,
+) -> tuple[list[float], list[float]]:
+    """Train VQ-VAE model for multiple epochs.
+
+    Args:
+        model: VQVAE model instance
+        optimizer: Optimizer for training
+        trainloader: DataLoader for training data
+        testloader: DataLoader for test data
+        start_epoch: Starting epoch number
+        num_epochs: Total number of epochs to train
+        output_dir: Directory to save checkpoints
+        device: Device to run training on ('cuda' or 'cpu')
+        logger: Logger instance
+
+    Returns:
+        Tuple of (train_loss_log, test_loss_log) containing loss values for each epoch
+    """
+    train_loss_log: list[float] = []
+    test_loss_log: list[float] = []
+
+    for i in range(start_epoch, num_epochs):
+        logger.info(f"Epoch {i + 1}/{num_epochs}")
+        train_loss: float = 0.0
+        test_loss: float = 0.0
+        model = model.to(device)
+
+        # Training phase
+        model.train()
+        for img, _ in tqdm(trainloader, desc="Training"):
+            img = img.to(device, dtype=torch.float)
+            optimizer.zero_grad()
+            embedding_loss, x_hat = model(img)
+            recon_loss = nn.MSELoss()(x_hat, img)
+            loss = recon_loss + embedding_loss
+            train_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+
+        # Evaluation phase
+        model.eval()
+        with torch.no_grad():
+            for img_t, _ in tqdm(testloader, desc="Testing"):
+                img = img_t.to(device, dtype=torch.float)
+                embedding_loss, x_hat = model(img)
+                recon_loss = nn.MSELoss()(x_hat, img)
+                loss = recon_loss + embedding_loss
+                test_loss += loss.item()
+
+        # Calculate average losses
+        dataset_size_train: int = (
+            len(trainloader.dataset) if hasattr(trainloader.dataset, "__len__") else 1
+        )
+        dataset_size_test: int = (
+            len(testloader.dataset) if hasattr(testloader.dataset, "__len__") else 1
+        )
+        train_loss /= float(dataset_size_train)
+        test_loss /= float(dataset_size_test)
+
+        # Log and record losses
+        log_msg = f"Epoch {i} - train_loss: {train_loss:.5f}, test_loss: {test_loss:.5f}"
+        logger.info(log_msg)
+        train_loss_log.append(train_loss)
+        test_loss_log.append(test_loss)
+
+        # Save checkpoint every 5 epochs
+        if (i + 1) % 5 == 0:
+            ckpt_path = os.path.join(output_dir, f"VQVAE_{i:03d}.pth")
+            torch.save(
+                {
+                    "param": model.to("cpu").state_dict(),
+                    "opt": optimizer.state_dict(),
+                    "epoch": i + 1,
+                },
+                ckpt_path,
+            )
+            logger.info(f"Saved checkpoint to {ckpt_path}")
+
+    return train_loss_log, test_loss_log
+
+
+def plot_loss(
+    train_loss_log: list[float],
+    test_loss_log: list[float],
+    output_dir: str,
+    logger: logging.Logger,
+) -> None:
+    """Plot and save training/test loss curves.
+
+    Args:
+        train_loss_log: List of training losses
+        test_loss_log: List of test losses
+        output_dir: Directory to save the plot
+        logger: Logger instance
+    """
+    plt.figure(figsize=(10, 6))
+    plt.suptitle("VQ-VAE Loss")
+    plt.plot(train_loss_log, label="train_loss", marker="o")
+    plt.plot(test_loss_log, label="test_loss", marker="s")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.grid(axis="y", alpha=0.3)
+    plt.legend()
+    
+    loss_plot_path = os.path.join(output_dir, "VQVAE_loss.png")
+    plt.savefig(loss_plot_path, dpi=100, bbox_inches="tight")
+    logger.info(f"Saved loss plot to {loss_plot_path}")
+    plt.show()
 
 
 def main(args: argparse.Namespace) -> None:
@@ -173,55 +293,20 @@ def main(args: argparse.Namespace) -> None:
     start_epoch = cur_epoch if ckpt_path.is_file() else 0
 
     logger.info("Starting training loop")
-    for i in range(start_epoch, args.num_epoch):
-        logger.info(f"Epoch {i + 1}/{args.num_epoch}")
-        train_loss: float = 0.0
-        test_loss: float = 0.0
-        model = model.to(device)
+    train_loss_log, test_loss_log = train_vqvae(
+        model=model,
+        optimizer=opt,
+        trainloader=trainloader,
+        testloader=testloader,
+        start_epoch=start_epoch,
+        num_epochs=args.num_epoch,
+        output_dir=args.output_dir,
+        device=device,
+        logger=logger,
+    )
 
-        model.train()  # training mode
-        for img, _ in tqdm(trainloader, desc="Training"):
-            img = img.to(device, dtype=torch.float)
-            opt.zero_grad()
-            embedding_loss, x_hat = model(img)
-            recon_loss = nn.MSELoss()(x_hat, img)
-            loss = recon_loss + embedding_loss
-            train_loss += loss.item()
-            loss.backward()
-            opt.step()
-
-        model.eval()  # evaluation mode
-        with torch.no_grad():
-            for img_t, _ in tqdm(testloader, desc="Testing"):
-                img = img_t.to(device, dtype=torch.float)
-                embedding_loss, x_hat = model(img)
-                recon_loss = nn.MSELoss()(x_hat, img)
-                loss = recon_loss + embedding_loss
-                test_loss += loss.item()
-
-        # Calculate and log losses for each epoch
-        dataset_size_train: int = (
-            len(trainloader.dataset) if hasattr(trainloader.dataset, "__len__") else 1
-        )
-        dataset_size_test: int = (
-            len(testloader.dataset) if hasattr(testloader.dataset, "__len__") else 1
-        )
-        train_loss /= float(dataset_size_train)
-        test_loss /= float(dataset_size_test)
-
-        log_msg = f"Epoch {i} - train_loss: {train_loss:.5f}, test_loss: {test_loss:.5f}"
-        logger.info(log_msg)
-        train_loss_log.append(train_loss)
-        test_loss_log.append(test_loss)
-
-        # Save checkpoint every 5 epochs
-        if (i + 1) % 5 == 0:
-            ckpt_path = os.path.join(args.output_dir, f"VQVAE_{i:03d}.pth")
-            torch.save(
-                {"param": model.to("cpu").state_dict(), "opt": opt.state_dict(), "epoch": i + 1},
-                ckpt_path,
-            )
-            logger.info(f"Saved checkpoint to {ckpt_path}")
+    # Plot and save loss curves
+    plot_loss(train_loss_log, test_loss_log, args.output_dir, logger)
 
     logger.info("VQ-VAE training script completed")
 

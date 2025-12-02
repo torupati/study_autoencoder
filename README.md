@@ -207,6 +207,7 @@ The CI pipeline tests against Python versions 3.9, 3.10, 3.11, and 3.12.
 ### VQ-VAE
 
 - Original paper: [Neural Discrete Representation Learning](https://arxiv.org/abs/1711.00937) (Oord et.al., 2017)
+- Tutlrial: https://github.com/praeclarumjj3/VQ-VAE-on-MNIST
 
 ### MNIST
 

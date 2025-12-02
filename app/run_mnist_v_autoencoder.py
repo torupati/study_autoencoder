@@ -26,49 +26,13 @@ from tqdm import tqdm
 
 from models.checkpoint import load_checkpoint
 from models.mnist.dataset_mnist import get_mnist_dataset
+from models.mnist.logging_utils import setup_logging
 from models.mnist.mnist_utils import (
     plot_latent,
     plot_latent_each_digit,
     plot_reconstructed,
 )
 from models.mnist.vae import VariationalAutoencoder
-
-
-def setup_logging(log_file: str = "vae_mnist.log") -> logging.Logger:
-    """Setup logging to both console and file.
-
-    Args:
-        log_file: Path to log file
-
-    Returns:
-        Logger instance
-    """
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
-    # Clear existing handlers to avoid duplicates
-    logger.handlers = []
-
-    # Console handler (INFO level)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.INFO)
-    stream_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
-    )
-    stream_handler.setFormatter(stream_formatter)
-
-    # File handler (DEBUG level)
-    file_handler = logging.FileHandler(log_file, mode="a")
-    file_handler.setLevel(logging.DEBUG)
-    file_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
-    )
-    file_handler.setFormatter(file_formatter)
-
-    logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
-
-    return logger
 
 
 def train_vae_new(
@@ -200,7 +164,7 @@ def main(args: argparse.Namespace) -> None:
         args: Command line arguments
     """
     torch.manual_seed(0)
-    logger = setup_logging()
+    logger = setup_logging("vae_mnist.log")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info("Device: %s", device)

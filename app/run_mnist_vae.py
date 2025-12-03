@@ -222,8 +222,8 @@ def main(args: argparse.Namespace) -> None:
     opt = optim.Adam(vae.parameters())
 
     # Training
-    train_loss_log = []
-    test_loss_log = []
+    train_loss_log: list[float] = []
+    test_loss_log: list[float] = []
 
     logger.info("Starting training loop")
     train_loss_log, test_loss_log = train_vae_new(

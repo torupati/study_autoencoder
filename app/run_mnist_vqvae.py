@@ -222,8 +222,8 @@ def main(args: argparse.Namespace) -> None:
     opt = optim.Adam(model.parameters(), lr=3e-4, betas=(0.5, 0.9))
 
     # Training logs
-    train_loss_log = []
-    test_loss_log = []
+    train_loss_log: list[float] = []
+    test_loss_log: list[float] = []
     start_epoch = cur_epoch if ckpt_path.is_file() else 0
 
     logger.info("Starting training loop")

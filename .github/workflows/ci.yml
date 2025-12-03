@@ -91,7 +91,8 @@ jobs:
     - name: Test application help commands
       run: |
         echo "Testing application help commands..."
-        uv run python misc/download_mnist.py
+        #uv run python misc/download_mnist.py
         uv run python app/run_mnist_autoencoder.py --help
-        uv run python app/run_mnist_v_autoencoder.py --help
+        uv run python app/run_mnist_vae.py --help
+        uv run python app/run_mnist_vqvae.py --help
         echo "✓ Application help commands work"

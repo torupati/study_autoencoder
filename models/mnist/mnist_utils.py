@@ -4,11 +4,6 @@ import cv2
 import numpy as np
 import torch
 
-from .dataset_mnist import get_mnist_dataset
-
-# Default dataset for utility functions
-dataset = get_mnist_dataset("./data/MNIST", train=True)
-
 
 def plot_latent_each_digit(ax, autoencoder, dataset, title_str=""):
     """
@@ -16,7 +11,6 @@ def plot_latent_each_digit(ax, autoencoder, dataset, title_str=""):
     """
     _device = next(autoencoder.parameters()).device.type
     # fig.suptitle('Sample Projection on Latent Space')
-    out_data = {"digit_lagel": [], "z": []}
     for y_digit in range(0, 10):
         data = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False)
         print("digit ", y_digit)

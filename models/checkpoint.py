@@ -1,11 +1,12 @@
 """Checkpoint utilities for model loading and saving."""
 
 import logging
+from typing import Any, Optional
 
 import torch
 
 
-def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
+def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> Optional[dict[str, Any]]:
     """Load model checkpoint from file.
 
     Args:
@@ -19,7 +20,7 @@ def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
     try:
         checkpoint = torch.load(ckpt_path, weights_only=True)
         logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
-        return checkpoint
+        return checkpoint  # type: ignore[no-any-return]
     except FileNotFoundError:
         logger.error("Checkpoint file not found: %s", ckpt_path)
         return None

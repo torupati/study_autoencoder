@@ -36,7 +36,7 @@ class Autoencoder(nn.Module):
 
         @property
         def in_features(self) -> int:
-            return self.linear1.in_features
+            return int(self.linear1.in_features)
 
     @staticmethod
     class Decoder(nn.Module):
@@ -58,7 +58,7 @@ class Autoencoder(nn.Module):
     def __init__(self, latent_dims: int, obs_dim: int):
         super(Autoencoder, self).__init__()
         print(f"init {latent_dims=} {obs_dim=}")
-        self._latent_dims = latent_dims
+        self._latent_dims: int = latent_dims
         self.encoder = Autoencoder.Encoder(latent_dims, obs_dim)
         self.decoder = Autoencoder.Decoder(latent_dims, obs_dim)
 

@@ -24,7 +24,7 @@ This project includes a custom MNIST dataset implementation (`models/dataset_mni
 - Includes proper data validation and error handling
 
 
-### Usage 
+### Usage
 
 This project uses [uv](https://docs.astral.sh/uv/) for Python package and dependency management.
 
@@ -227,4 +227,3 @@ https://scikit-learn.org/stable/auto_examples/classification/plot_digits_classif
 
 - docker build for poetry
   https://stackoverflow.com/questions/68756419/dockerfile-multistage-python-poetry-install
-

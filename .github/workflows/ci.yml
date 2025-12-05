@@ -15,22 +15,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v3
       with:
         version: "latest"
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
-    
+
     - name: Install dependencies
       run: |
         # Create venv and install all dependencies including dev
         uv sync --all-groups --python ${{ matrix.python-version }}
         # Force reinstall CPU-only PyTorch to ensure no CUDA packages
         uv pip install --upgrade --force-reinstall torch --index-url https://download.pytorch.org/whl/cpu
-    
+
     - name: Verify installation
       run: |
         echo "Checking installed packages:"
@@ -47,7 +47,7 @@ jobs:
         echo ""
         echo "Testing import with PYTHONPATH:"
         PYTHONPATH=$PWD uv run python -c "from models.mnist.base_ae import Autoencoder; print('✅ Import successful')" || echo "❌ Import failed"
-    
+
     - name: Lint and format with ruff
       run: |
         echo "Python:"
@@ -60,7 +60,7 @@ jobs:
         uv run ruff check .
         # Check code formatting
         uv run ruff format --check .
-    
+
     - name: Type check with mypy
       run: |
         uv run mypy models/mnist models/image128 app --ignore-missing-imports
@@ -70,7 +70,7 @@ jobs:
       run: |
         echo "Checking PyTorch installation..."
         uv run python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); assert '+cpu' in torch.__version__, 'PyTorch CPU version not detected'; assert not torch.cuda.is_available(), 'CUDA should not be available'"
-        
+
         echo "Checking for NVIDIA packages..."
         if uv pip list | grep -i nvidia; then
           echo "❌ NVIDIA packages found - should not be installed"
@@ -91,8 +91,15 @@ jobs:
     - name: Test application help commands
       run: |
         echo "Testing application help commands..."
-        #uv run python misc/download_mnist.py
         uv run python app/run_mnist_autoencoder.py --help
         uv run python app/run_mnist_vae.py --help
         uv run python app/run_mnist_vqvae.py --help
         echo "✓ Application help commands work"
+
+    - name: Test application training commands (dry run)
+      run: |
+        uv run python misc/download_mnist.py
+        uv run python app/run_mnist_autoencoder.py --num-epochs 2 --batch-size 16 --dataset-dir ./data/mnist --dry-run
+        uv run python app/run_mnist_vae.py --num-epochs 2 --batch-size 16 --dataset-dir ./data/mnist --dry-run
+        uv run python app/run_mnist_vqvae.py --num-epochs 2 --batch-size 16 --dataset-dir ./data/mnist --dry-run
+        echo "✓ Application training commands work"

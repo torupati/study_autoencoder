@@ -180,9 +180,12 @@ def main(args: argparse.Namespace) -> None:
             # Normalize to [-1, 1] range
         ]
     )
-
-    trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
-    testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+    try:
+        trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
+        testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+    except FileNotFoundError as e:
+        logger.error(f"Dataset files not found: {e}")
+        return
 
     trainloader = DataLoader(
         trainset, batch_size=args.batch_size, drop_last=True, shuffle=True, num_workers=0

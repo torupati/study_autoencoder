@@ -31,7 +31,6 @@ class MNISTDataset(Dataset):
         train (bool): If True, load training set, otherwise test set
         transform (callable, optional): Transform to apply to images
         target_transform (callable, optional): Transform to apply to targets
-        download (bool): Not used, files should already exist
     """
 
     # MNIST file information
@@ -46,8 +45,19 @@ class MNISTDataset(Dataset):
         train: bool = True,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
-        download: bool = False,
     ):
+        """Initialize the MNIST dataset.
+
+        Args:
+            root: Root directory containing MNIST data files
+            train: If True, load training set; otherwise load test set. Defaults to True.
+            transform: Optional transform to apply to images. Defaults to None.
+            target_transform: Optional transform to apply to targets. Defaults to None.
+            download: Not used; files should already exist in the root directory. Defaults to False.
+
+        Raises:
+            FileNotFoundError: If the MNIST data files are not found in the specified directory.
+        """
         self.root = root
         self.train = train
         self.transform = transform

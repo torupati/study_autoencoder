@@ -84,7 +84,7 @@ make dev-install
 # Run autoencoder
 make run-autoencoder
 
-# Run variational autoencoder  
+# Run variational autoencoder
 make run-vae
 
 # Run tests

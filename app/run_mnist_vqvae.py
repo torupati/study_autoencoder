@@ -36,6 +36,7 @@ def train_vqvae(
     output_dir: str,
     device: str,
     logger: logging.Logger,
+    no_progress: bool = False,
 ) -> tuple[list[float], list[float]]:
     """Train VQ-VAE model for multiple epochs.
 
@@ -64,7 +65,7 @@ def train_vqvae(
 
         # Training phase
         model.train()
-        for img, _ in tqdm(trainloader, desc="Training"):
+        for img, _ in tqdm(trainloader, desc="Training", disable=no_progress):
             img = img.to(device, dtype=torch.float)
             optimizer.zero_grad()
             embedding_loss, x_hat = model(img)
@@ -77,7 +78,7 @@ def train_vqvae(
         # Evaluation phase
         model.eval()
         with torch.no_grad():
-            for img_t, _ in tqdm(testloader, desc="Testing"):
+            for img_t, _ in tqdm(testloader, desc="Testing", disable=no_progress):
                 img = img_t.to(device, dtype=torch.float)
                 embedding_loss, x_hat = model(img)
                 recon_loss = nn.MSELoss()(x_hat, img)
@@ -241,6 +242,7 @@ def main(args: argparse.Namespace) -> None:
         output_dir=args.output_dir,
         device=device,
         logger=logger,
+        no_progress=args.no_progress,
     )
 
     # Plot and save loss curves
@@ -312,7 +314,11 @@ def prepare_argparse() -> argparse.ArgumentParser:
         type=str,
         help="Checkpoint file path",
     )
-
+    parser.add_argument(
+        "--no_progress",
+        action="store_true",
+        help="Disable progress bars",
+    )
     return parser
 
 

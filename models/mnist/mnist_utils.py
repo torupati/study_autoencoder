@@ -13,7 +13,7 @@ def plot_latent_each_digit(ax, autoencoder, dataset, title_str=""):
     # fig.suptitle('Sample Projection on Latent Space')
     for y_digit in range(0, 10):
         data = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False)
-        print("digit ", y_digit)
+        # print("digit ", y_digit)
         z_vals = []
         for i, (x, y) in enumerate(data):
             x = x[y == y_digit]
@@ -22,7 +22,7 @@ def plot_latent_each_digit(ax, autoencoder, dataset, title_str=""):
             _ret = autoencoder.encoder(x.to(_device))
             if isinstance(_ret, dict):
                 z = _ret["z"]
-                print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
+                # print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
             else:
                 z = _ret
             z = z.to("cpu").detach().numpy()
@@ -51,12 +51,13 @@ def plot_latent(ax, autoencoder, dataset, num_lim=100):
     """
     _device = next(autoencoder.parameters()).device.type
     ax.set_title("Sample Projection on Latent Space")
+    im = None
     for i, (x, y) in enumerate(dataset):
         x = torch.flatten(x, start_dim=1)
         _ret = autoencoder.encoder(x.to(_device))
         if isinstance(_ret, dict):
             z = _ret["z"]
-            print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
+            # print(f'{_ret.get("mu")=} {_ret.get("sigma")=}')
         else:
             z = _ret
         z = z.to("cpu").detach().numpy()
@@ -67,7 +68,7 @@ def plot_latent(ax, autoencoder, dataset, num_lim=100):
     ax.set_xlabel(r"$z_1$")
     ax.set_ylabel(r"$z_2$")
     # fig.colorbar(im, ax=ax)
-    return ax
+    return im
 
 
 def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
@@ -110,7 +111,7 @@ def plot_reconstructed(ax, autoencoder, r0=(-5, 10), r1=(-10, 5), num_img=12):
     im = ax.imshow(img, extent=[*r0, *r1])
     ax.set_xlabel(r"$z_1$")
     ax.set_ylabel(r"$z_2$")
-    return ax
+    return im
 
 
 def generate_png_file(dataset, outdir: str = "."):
@@ -119,7 +120,7 @@ def generate_png_file(dataset, outdir: str = "."):
         npimg = np.transpose(img.numpy(), (1, 2, 0))
         outfile = path.join(outdir, f"img{i:04d}.png")
         cv2.imwrite(outfile, npimg)
-        print(outfile)
+        # print(outfile)
 
 
 # generate_png_file(dataset)

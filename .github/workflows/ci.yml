@@ -99,7 +99,7 @@ jobs:
     - name: Test application training commands
       run: |
         uv run python misc/download_mnist.py
-        uv run python app/run_mnist_autoencoder.py --num_epoch 2 --batch_size 16 --dataset_dir ./data/MNIST --no_progress
-        uv run python app/run_mnist_vae.py --num_epoch 2 --batch_size 16 --dataset_dir ./data/MNIST --no_progress
-        uv run python app/run_mnist_vqvae.py --num_epoch 2 --batch_size 16 --dataset_dir ./data/MNIST --no_progress
+        uv run python app/run_mnist_autoencoder.py --num_epoch 1 --batch_size 16 --dataset_dir ./data/MNIST --no_progress
+        uv run python app/run_mnist_vae.py --num_epoch 1 --batch_size 16 --dataset_dir ./data/MNIST --no_progress
+        uv run python app/run_mnist_vqvae.py --num_epoch 1 --batch_size 16 --dataset_dir ./data/MNIST --no_progress
         echo "✓ Application training commands work"

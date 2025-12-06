@@ -30,9 +30,9 @@ from models.mnist.logging_utils import setup_logging
 from models.mnist.mnist_utils import (
     plot_latent,
     plot_latent_each_digit,
+    plot_loss,
     plot_reconstructed,
 )
-from models.mnist.plot_utils import plot_loss
 from models.mnist.vae import VariationalAutoencoder
 
 

@@ -13,82 +13,114 @@ import logging
 import os
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import torch
 import torchvision.transforms as transforms
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from models.checkpoint import load_checkpoint
+from models.logging_utils import setup_logging
 from models.mnist.dataset_mnist import get_mnist_dataset
+from models.mnist.mnist_utils import (
+    plot_latent,
+    plot_latent_each_digit,
+    plot_loss,
+    plot_reconstructed,
+)
 from models.mnist.vqvae import VQVAE
 
 
-def setup_logging(log_file: str = "vqvae_mnist.log") -> logging.Logger:
-    """Setup logging to both console and file.
+def train_vqvae(
+    model: VQVAE,
+    optimizer: optim.Optimizer,
+    trainloader: DataLoader,
+    testloader: DataLoader,
+    start_epoch: int,
+    num_epochs: int,
+    output_dir: str,
+    device: str,
+    logger: logging.Logger,
+    no_progress: bool = False,
+) -> tuple[list[float], list[float]]:
+    """Train VQ-VAE model for multiple epochs.
 
     Args:
-        log_file: Path to log file
-
-    Returns:
-        Logger instance
-    """
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
-    # Clear existing handlers to avoid duplicates
-    logger.handlers = []
-
-    # Console handler (INFO level)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.INFO)
-    stream_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
-    )
-    stream_handler.setFormatter(stream_formatter)
-
-    # File handler (DEBUG level)
-    file_handler = logging.FileHandler(log_file, mode="a")
-    file_handler.setLevel(logging.DEBUG)
-    file_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
-    )
-    file_handler.setFormatter(file_formatter)
-
-    logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
-
-    return logger
-
-
-def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
-    """Load model checkpoint from file.
-
-    Args:
-        ckpt_path: Path to checkpoint file
+        model: VQVAE model instance
+        optimizer: Optimizer for training
+        trainloader: DataLoader for training data
+        testloader: DataLoader for test data
+        start_epoch: Starting epoch number
+        num_epochs: Total number of epochs to train
+        output_dir: Directory to save checkpoints
+        device: Device to run training on ('cuda' or 'cpu')
         logger: Logger instance
 
     Returns:
-        Dictionary containing checkpoint data with keys:
-        - model_state_dict: Model weights
-        - optimizer_state_dict: Optimizer state
-        - epoch: Training epoch
-        - e_dim: Embedding dimension
-        - num_e: Number of embeddings
-        - loss: Training loss
-
-        Returns None if loading fails.
+        Tuple of (train_loss_log, test_loss_log) containing loss values for each epoch
     """
-    logger.info("Loading checkpoint from: %s", ckpt_path)
-    try:
-        checkpoint = torch.load(ckpt_path, weights_only=True)
-        logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
-        return checkpoint
-    except FileNotFoundError:
-        logger.error("Checkpoint file not found: %s", ckpt_path)
-        return None
-    except Exception as e:
-        logger.error("Failed to load checkpoint: %s", e)
-        return None
+    train_loss_log: list[float] = []
+    test_loss_log: list[float] = []
+
+    for i in range(start_epoch, num_epochs):
+        logger.info(f"Epoch {i + 1}/{num_epochs}")
+        train_loss: float = 0.0
+        test_loss: float = 0.0
+        model = model.to(device)
+
+        # Training phase
+        model.train()
+        for img, _ in tqdm(trainloader, desc="Training", disable=no_progress):
+            img = img.to(device, dtype=torch.float)
+            optimizer.zero_grad()
+            embedding_loss, x_hat = model(img)
+            recon_loss = nn.MSELoss()(x_hat, img)
+            loss = recon_loss + embedding_loss
+            train_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+
+        # Evaluation phase
+        model.eval()
+        with torch.no_grad():
+            for img_t, _ in tqdm(testloader, desc="Testing", disable=no_progress):
+                img = img_t.to(device, dtype=torch.float)
+                embedding_loss, x_hat = model(img)
+                recon_loss = nn.MSELoss()(x_hat, img)
+                loss = recon_loss + embedding_loss
+                test_loss += loss.item()
+
+        # Calculate average losses
+        dataset_size_train: int = (
+            len(trainloader.dataset) if hasattr(trainloader.dataset, "__len__") else 1
+        )
+        dataset_size_test: int = (
+            len(testloader.dataset) if hasattr(testloader.dataset, "__len__") else 1
+        )
+        train_loss /= float(dataset_size_train)
+        test_loss /= float(dataset_size_test)
+
+        # Log and record losses
+        log_msg = f"Epoch {i} - train_loss: {train_loss:.5f}, test_loss: {test_loss:.5f}"
+        logger.info(log_msg)
+        train_loss_log.append(train_loss)
+        test_loss_log.append(test_loss)
+
+        # Save checkpoint every 5 epochs
+        if (i + 1) % 5 == 0:
+            ckpt_path = os.path.join(output_dir, f"VQVAE_{i:03d}.pth")
+            torch.save(
+                {
+                    "param": model.to("cpu").state_dict(),
+                    "opt": optimizer.state_dict(),
+                    "epoch": i + 1,
+                },
+                ckpt_path,
+            )
+            logger.info(f"Saved checkpoint to {ckpt_path}")
+
+    return train_loss_log, test_loss_log
 
 
 def main(args: argparse.Namespace) -> None:
@@ -98,7 +130,7 @@ def main(args: argparse.Namespace) -> None:
         args: Command line arguments
     """
     torch.manual_seed(0)
-    logger = setup_logging()
+    logger = setup_logging("vqvae_mnist.log")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info("Device: %s", device)
@@ -121,8 +153,12 @@ def main(args: argparse.Namespace) -> None:
         ]
     )
 
-    trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
-    testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+    try:
+        trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
+        testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+    except FileNotFoundError as e:
+        logger.error(f"Dataset files not found: {e}")
+        return
 
     trainloader = DataLoader(
         trainset, batch_size=args.batch_size, drop_last=True, shuffle=True, num_workers=0
@@ -168,60 +204,33 @@ def main(args: argparse.Namespace) -> None:
     opt = optim.Adam(model.parameters(), lr=3e-4, betas=(0.5, 0.9))
 
     # Training logs
-    train_loss_log = []
-    test_loss_log = []
+    train_loss_log: list[float] = []
+    test_loss_log: list[float] = []
     start_epoch = cur_epoch if ckpt_path.is_file() else 0
 
     logger.info("Starting training loop")
-    for i in range(start_epoch, args.num_epoch):
-        logger.info(f"Epoch {i + 1}/{args.num_epoch}")
-        train_loss: float = 0.0
-        test_loss: float = 0.0
-        model = model.to(device)
+    train_loss_log, test_loss_log = train_vqvae(
+        model=model,
+        optimizer=opt,
+        trainloader=trainloader,
+        testloader=testloader,
+        start_epoch=start_epoch,
+        num_epochs=args.num_epoch,
+        output_dir=args.output_dir,
+        device=device,
+        logger=logger,
+        no_progress=args.no_progress,
+    )
 
-        model.train()  # training mode
-        for img, _ in tqdm(trainloader, desc="Training"):
-            img = img.to(device, dtype=torch.float)
-            opt.zero_grad()
-            embedding_loss, x_hat = model(img)
-            recon_loss = nn.MSELoss()(x_hat, img)
-            loss = recon_loss + embedding_loss
-            train_loss += loss.item()
-            loss.backward()
-            opt.step()
-
-        model.eval()  # evaluation mode
-        with torch.no_grad():
-            for img_t, _ in tqdm(testloader, desc="Testing"):
-                img = img_t.to(device, dtype=torch.float)
-                embedding_loss, x_hat = model(img)
-                recon_loss = nn.MSELoss()(x_hat, img)
-                loss = recon_loss + embedding_loss
-                test_loss += loss.item()
-
-        # Calculate and log losses for each epoch
-        dataset_size_train: int = (
-            len(trainloader.dataset) if hasattr(trainloader.dataset, "__len__") else 1
-        )
-        dataset_size_test: int = (
-            len(testloader.dataset) if hasattr(testloader.dataset, "__len__") else 1
-        )
-        train_loss /= float(dataset_size_train)
-        test_loss /= float(dataset_size_test)
-
-        log_msg = f"Epoch {i} - train_loss: {train_loss:.5f}, test_loss: {test_loss:.5f}"
-        logger.info(log_msg)
-        train_loss_log.append(train_loss)
-        test_loss_log.append(test_loss)
-
-        # Save checkpoint every 5 epochs
-        if (i + 1) % 5 == 0:
-            ckpt_path = os.path.join(args.output_dir, f"VQVAE_{i:03d}.pth")
-            torch.save(
-                {"param": model.to("cpu").state_dict(), "opt": opt.state_dict(), "epoch": i + 1},
-                ckpt_path,
-            )
-            logger.info(f"Saved checkpoint to {ckpt_path}")
+    # Plot and save loss curves
+    plot_loss(
+        train_loss_log,
+        test_loss_log,
+        args.output_dir,
+        logger,
+        title="VQ-VAE Loss",
+        filename="VQVAE_loss.png",
+    )
 
     logger.info("VQ-VAE training script completed")
 
@@ -289,7 +298,11 @@ def prepare_argparse() -> argparse.ArgumentParser:
         type=str,
         help="Checkpoint file path",
     )
-
+    parser.add_argument(
+        "--no_progress",
+        action="store_true",
+        help="Disable progress bars",
+    )
     return parser
 
 

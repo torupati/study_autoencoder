@@ -20,76 +20,10 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from models.checkpoint import load_checkpoint
 from models.mnist.dataset_mnist import get_mnist_dataset
+from models.mnist.logging_utils import setup_logging
 from models.mnist.vqvae import VQVAE
-
-
-def setup_logging(log_file: str = "vqvae_mnist.log") -> logging.Logger:
-    """Setup logging to both console and file.
-
-    Args:
-        log_file: Path to log file
-
-    Returns:
-        Logger instance
-    """
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
-    # Clear existing handlers to avoid duplicates
-    logger.handlers = []
-
-    # Console handler (INFO level)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.INFO)
-    stream_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
-    )
-    stream_handler.setFormatter(stream_formatter)
-
-    # File handler (DEBUG level)
-    file_handler = logging.FileHandler(log_file, mode="a")
-    file_handler.setLevel(logging.DEBUG)
-    file_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s"
-    )
-    file_handler.setFormatter(file_formatter)
-
-    logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
-
-    return logger
-
-
-def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict | None:
-    """Load model checkpoint from file.
-
-    Args:
-        ckpt_path: Path to checkpoint file
-        logger: Logger instance
-
-    Returns:
-        Dictionary containing checkpoint data with keys:
-        - model_state_dict: Model weights
-        - optimizer_state_dict: Optimizer state
-        - epoch: Training epoch
-        - e_dim: Embedding dimension
-        - num_e: Number of embeddings
-        - loss: Training loss
-
-        Returns None if loading fails.
-    """
-    logger.info("Loading checkpoint from: %s", ckpt_path)
-    try:
-        checkpoint = torch.load(ckpt_path, weights_only=True)
-        logger.info("Checkpoint keys: %s", list(checkpoint.keys()))
-        return checkpoint
-    except FileNotFoundError:
-        logger.error("Checkpoint file not found: %s", ckpt_path)
-        return None
-    except Exception as e:
-        logger.error("Failed to load checkpoint: %s", e)
-        return None
 
 
 def train_vqvae(
@@ -102,6 +36,7 @@ def train_vqvae(
     output_dir: str,
     device: str,
     logger: logging.Logger,
+    no_progress: bool = False,
 ) -> tuple[list[float], list[float]]:
     """Train VQ-VAE model for multiple epochs.
 
@@ -130,7 +65,7 @@ def train_vqvae(
 
         # Training phase
         model.train()
-        for img, _ in tqdm(trainloader, desc="Training"):
+        for img, _ in tqdm(trainloader, desc="Training", disable=no_progress):
             img = img.to(device, dtype=torch.float)
             optimizer.zero_grad()
             embedding_loss, x_hat = model(img)
@@ -143,7 +78,7 @@ def train_vqvae(
         # Evaluation phase
         model.eval()
         with torch.no_grad():
-            for img_t, _ in tqdm(testloader, desc="Testing"):
+            for img_t, _ in tqdm(testloader, desc="Testing", disable=no_progress):
                 img = img_t.to(device, dtype=torch.float)
                 embedding_loss, x_hat = model(img)
                 recon_loss = nn.MSELoss()(x_hat, img)
@@ -204,7 +139,7 @@ def plot_loss(
     plt.ylabel("Loss")
     plt.grid(axis="y", alpha=0.3)
     plt.legend()
-    
+
     loss_plot_path = os.path.join(output_dir, "VQVAE_loss.png")
     plt.savefig(loss_plot_path, dpi=100, bbox_inches="tight")
     logger.info(f"Saved loss plot to {loss_plot_path}")
@@ -218,7 +153,7 @@ def main(args: argparse.Namespace) -> None:
         args: Command line arguments
     """
     torch.manual_seed(0)
-    logger = setup_logging()
+    logger = setup_logging("vqvae_mnist.log")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info("Device: %s", device)
@@ -241,8 +176,12 @@ def main(args: argparse.Namespace) -> None:
         ]
     )
 
-    trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
-    testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+    try:
+        trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
+        testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+    except FileNotFoundError as e:
+        logger.error(f"Dataset files not found: {e}")
+        return
 
     trainloader = DataLoader(
         trainset, batch_size=args.batch_size, drop_last=True, shuffle=True, num_workers=0
@@ -288,8 +227,8 @@ def main(args: argparse.Namespace) -> None:
     opt = optim.Adam(model.parameters(), lr=3e-4, betas=(0.5, 0.9))
 
     # Training logs
-    train_loss_log = []
-    test_loss_log = []
+    train_loss_log: list[float] = []
+    test_loss_log: list[float] = []
     start_epoch = cur_epoch if ckpt_path.is_file() else 0
 
     logger.info("Starting training loop")
@@ -303,6 +242,7 @@ def main(args: argparse.Namespace) -> None:
         output_dir=args.output_dir,
         device=device,
         logger=logger,
+        no_progress=args.no_progress,
     )
 
     # Plot and save loss curves
@@ -374,7 +314,11 @@ def prepare_argparse() -> argparse.ArgumentParser:
         type=str,
         help="Checkpoint file path",
     )
-
+    parser.add_argument(
+        "--no_progress",
+        action="store_true",
+        help="Disable progress bars",
+    )
     return parser
 
 

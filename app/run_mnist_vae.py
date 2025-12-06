@@ -25,8 +25,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from models.checkpoint import load_checkpoint
+from models.logging_utils import setup_logging
 from models.mnist.dataset_mnist import get_mnist_dataset
-from models.mnist.logging_utils import setup_logging
 from models.mnist.mnist_utils import (
     plot_latent,
     plot_latent_each_digit,

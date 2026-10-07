@@ -179,3 +179,8 @@ train-*
 
 # Model checkpoints
 checkpoint_*.pth
+
+# Local training artifacts and scratch files
+data/
+*.pth
+*.orig

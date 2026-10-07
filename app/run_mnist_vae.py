@@ -25,8 +25,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from models.checkpoint import load_checkpoint
+from models.datasets import get_mnist_dataset
 from models.logging_utils import setup_logging
-from models.mnist.dataset_mnist import get_mnist_dataset
 from models.mnist.mnist_utils import (
     plot_latent,
     plot_latent_each_digit,
@@ -34,6 +34,8 @@ from models.mnist.mnist_utils import (
     plot_reconstructed,
 )
 from models.mnist.vae import VariationalAutoencoder
+
+from app.common import Trainer, TrainerConfig
 
 
 def train_vae_new(
@@ -147,17 +149,16 @@ def main(args: argparse.Namespace) -> None:
 
     # Prepare data
     logger.info(f"Loading MNIST dataset from {args.dataset_dir}")
-    transform = transforms.Compose(
-        [
-            transforms.Normalize((0.5,), (0.5,))
-            # Normalize to [-1, 1] range
-        ]
-    )
+
+    # Keep pixels in [0, 1] to match the decoder's sigmoid output; flatten to 784
+    def transform_fn(img: torch.Tensor) -> torch.Tensor:
+        return img.view(-1)
+
     try:
-        trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform)
-        testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform)
+        trainset = get_mnist_dataset(root=args.dataset_dir, train=True, transform=transform_fn)
+        testset = get_mnist_dataset(root=args.dataset_dir, train=False, transform=transform_fn)
     except FileNotFoundError as e:
-        logger.error(f"Dataset files not found: {e}")
+        logger.error("Dataset files not found: %s", e)
         return
 
     trainloader = DataLoader(
@@ -166,7 +167,7 @@ def main(args: argparse.Namespace) -> None:
     testloader = DataLoader(
         testset, batch_size=args.batch_size, drop_last=False, shuffle=False, num_workers=0
     )
-    logger.info(f"Train samples: {len(trainset)}, Test samples: {len(testset)}")
+    logger.info("Train samples: %d, Test samples: %d", len(trainset), len(testset))
 
     # Model initialization or loading from checkpoint
     ckpt_path = Path(args.ckpt)
@@ -186,7 +187,7 @@ def main(args: argparse.Namespace) -> None:
         # Initialize model and load state
         logger.info(f"Initializing VAE (latent_dims={cur_latent_dims})")
         vae = VariationalAutoencoder(cur_latent_dims, 28 * 28).to(device)
-        vae.load_state_dict(checkpoint["model_state_dict"])
+        vae.load_state_dict(checkpoint.get("model_state_dict", checkpoint.get("model_state")))
 
         if args.resume:
             logger.info("Resuming training from epoch %d", start_epoch)
@@ -195,25 +196,33 @@ def main(args: argparse.Namespace) -> None:
         vae = VariationalAutoencoder(args.latent_dims, 28 * 28).to(device)
 
     # Initialize optimizer
-    opt = optim.Adam(vae.parameters())
+    opt = optim.Adam(vae.parameters(), lr=1e-3)
 
-    # Training
-    train_loss_log: list[float] = []
-    test_loss_log: list[float] = []
+    # Use shared Trainer
+    def loss_fn(recon: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        mse = ((recon - x) ** 2).sum()
+        kl = getattr(getattr(vae, "encoder", None), "kl", 0.0)
+        return mse + kl
 
-    logger.info("Starting training loop")
-    train_loss_log, test_loss_log = train_vae_new(
+    config = TrainerConfig(
+        epochs=args.num_epoch,
+        batch_size=args.batch_size,
+        ckpt_path=os.path.join(args.output_dir, "checkpoint_vae"),
+        resume_from=args.ckpt if args.resume and ckpt_path.is_file() else None,
+        save_every=10,
+        log_file="vae_mnist.log",
+    )
+    trainer = Trainer(
         model=vae,
         optimizer=opt,
-        trainloader=trainloader,
-        testloader=testloader,
-        start_epoch=start_epoch,
-        num_epochs=args.num_epoch,
-        output_dir=args.output_dir,
-        device=device,
+        loss_fn=loss_fn,
+        train_loader=trainloader,
+        val_loader=testloader,
+        config=config,
         logger=logger,
-        no_progress=args.no_progress,
     )
+
+    train_loss_log, test_loss_log = trainer.fit()
 
     # Plot and save loss curves
     plot_loss(

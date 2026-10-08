@@ -91,7 +91,8 @@ def plot_latent(ax, autoencoder, dataset, num_lim=100):
     ax.set_title("Sample Projection on Latent Space")
     im = None
     for i, (x, y) in enumerate(dataset):
-        x = torch.flatten(x, start_dim=1)
+        # samples may be (1, 28, 28) images or already-flattened (784,) vectors
+        x = x.reshape(1, -1) if x.dim() == 1 else torch.flatten(x, start_dim=1)
         _ret = autoencoder.encoder(x.to(_device))
         if isinstance(_ret, dict):
             z = _ret["z"]

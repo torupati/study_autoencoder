@@ -1,4 +1,4 @@
-.PHONY: install dev-install test format lint clean run-autoencoder run-vae help
+.PHONY: install dev-install test format lint clean run-autoencoder run-vae web-vae help
 
 # Default Python version
 PYTHON_VERSION ?= 3.11
@@ -74,7 +74,11 @@ run-autoencoder: ## Run MNIST autoencoder
 	uv run python app/run_mnist_autoencoder.py
 
 run-vae: ## Run MNIST variational autoencoder
-	uv run python app/run_mnist_v_autoencoder.py
+	uv run python app/run_mnist_vae.py
+
+web-vae: ## Launch the MNIST VAE web demo (Gradio) at http://127.0.0.1:7860
+	uv sync --extra web
+	uv run python app/web_vae_demo.py
 
 run-vqvae: ## Run MNIST VQ-VAE
 	uv run python app/run_mnist_vqvae.py

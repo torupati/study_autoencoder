@@ -95,9 +95,24 @@ After installation, you can run the autoencoder training:
 # Run standard autoencoder
 uv run python app/run_mnist_autoencoder.py
 
-# Run variational autoencoder
-uv run python app/run_mnist_v_autoencoder.py
+# Run variational autoencoder (2-D latent space, checkpoints in ./checkpoints/vae_z2)
+uv run python app/run_mnist_vae.py --latent_dims 2 --output_dir ./checkpoints/vae_z2
 ```
+
+#### Web demo (VAE)
+
+An interactive Gradio demo of a trained VAE: draw a digit and see its reconstruction,
+explore the latent space with sliders or by clicking a decoded grid, interpolate between
+test images, and sample from the prior.
+
+```bash
+uv sync --extra web
+uv run python app/web_vae_demo.py --ckpt checkpoints/vae_z2/checkpoint_vae_epoch040.pth
+# or: make web-vae   (uses the newest checkpoint found)
+```
+
+Then open http://127.0.0.1:7860. Without `--ckpt`, the demo picks the last
+`checkpoint_vae*.pth` found under `./checkpoints/`.
 
 #### Development
 

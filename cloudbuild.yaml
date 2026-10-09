@@ -1,0 +1,59 @@
+# Cloud Build: build the VAE web demo image and deploy it to Cloud Run.
+#
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_MODEL_URI=gs://<bucket>/vae_z2/checkpoint_vae_epoch040.pth
+#
+# One-time setup (Artifact Registry repository, bucket, IAM): see doc/cloudrun.md.
+
+substitutions:
+  _REGION: asia-northeast1
+  _REPO: vae-demo
+  _SERVICE: mnist-vae-demo
+  _MODEL_URI: gs://${PROJECT_ID}-vae-models/vae_z2/checkpoint_vae_epoch040.pth
+
+options:
+  dynamicSubstitutions: true
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # The checkpoint is not in git; fetch it into the build context
+  - id: fetch-model
+    name: gcr.io/cloud-builders/gcloud
+    args: ["storage", "cp", "${_MODEL_URI}", "model/vae.pth"]
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    # BuildKit is needed for the Dockerfile's RUN --mount cache
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}
+
+  - id: deploy
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+      - --region=${_REGION}
+      - --allow-unauthenticated
+      - --cpu=1
+      - --memory=2Gi
+      - --min-instances=0
+      - --max-instances=2
+      - --concurrency=20
+      - --timeout=3600
+      # Gradio keeps per-session state on the instance; route a browser to the same one
+      - --session-affinity

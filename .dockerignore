@@ -1,0 +1,9 @@
+# Only the files the Dockerfile COPYs are needed; keep the build context small
+*
+!pyproject.toml
+!uv.lock
+!misc/download_mnist.py
+!models/
+!app/
+!model/vae.pth
+**/__pycache__

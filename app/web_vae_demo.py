@@ -275,8 +275,11 @@ def prepare_argparse() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Gradio web demo for the MNIST VAE")
     parser.add_argument("--ckpt", "-c", default="", help="VAE checkpoint (default: newest found)")
     parser.add_argument("--dataset_dir", default="./data/MNIST/", help="MNIST dataset directory")
-    parser.add_argument("--host", default="127.0.0.1", help="Server host")
-    parser.add_argument("--port", type=int, default=7860, help="Server port")
+    # HOST/PORT env vars let containers (e.g. Cloud Run, which sets PORT) override defaults
+    parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"), help="Server host")
+    parser.add_argument(
+        "--port", type=int, default=int(os.environ.get("PORT", "7860")), help="Server port"
+    )
     parser.add_argument("--share", action="store_true", help="Create a public Gradio link")
     return parser
 

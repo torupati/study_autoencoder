@@ -1,0 +1,15 @@
+# Files uploaded by `gcloud builds submit`. Without this file gcloud falls back to
+# .gitignore. Allow-list the build inputs (matches .dockerignore).
+*
+!Dockerfile
+!.dockerignore
+!cloudbuild.yaml
+!pyproject.toml
+!uv.lock
+!misc/
+!misc/download_mnist.py
+!models/
+!models/**
+!app/
+!app/**
+**/__pycache__/

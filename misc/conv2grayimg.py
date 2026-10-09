@@ -38,7 +38,7 @@ def batch_convert_images(target_dir: str, output_dir: str):
 
     # Find all JPEG files (case-insensitive)
     jpeg_patterns = ["*.jpg", "*.JPG", "*.jpeg", "*.JPEG"]
-    image_files = []
+    image_files: list[Path] = []
     for pattern in jpeg_patterns:
         image_files.extend(target_path.glob(pattern))
 

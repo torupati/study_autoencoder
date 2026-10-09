@@ -9,7 +9,8 @@ so applications can import a common dataset API from models.datasets.
 import gzip
 import os
 import struct
-from typing import Callable, Optional
+from collections.abc import Callable
+from typing import Optional
 
 import numpy as np
 import torch
@@ -37,8 +38,8 @@ class MNISTDataset(Dataset):
         self,
         root: str,
         train: bool = True,
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
+        transform: Callable | None = None,
+        target_transform: Callable | None = None,
     ):
         """Initialize the MNIST dataset.
 
@@ -193,8 +194,8 @@ class MNISTDataset(Dataset):
 def get_mnist_dataset(
     root: str = "./data/MNIST",
     train: bool = True,
-    transform: Optional[Callable] = None,
-    target_transform: Optional[Callable] = None,
+    transform: Callable | None = None,
+    target_transform: Callable | None = None,
 ) -> MNISTDataset:
     """
     Convenience function to create MNIST dataset.

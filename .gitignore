@@ -161,7 +161,6 @@ cython_debug/
 
 # UV package manager
 .venv/
-uv.lock
 
 # Project specific
 *.log

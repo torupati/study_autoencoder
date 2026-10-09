@@ -210,7 +210,7 @@ This project uses GitHub Actions for continuous integration. On every push and p
 - **Testing**: PyTest runs unit tests
 - **PyTorch Verification**: Ensures CPU-only PyTorch is working correctly
 
-The CI pipeline tests against Python versions 3.9, 3.10, 3.11, and 3.12.
+The CI pipeline tests against Python 3.13.
 
 ## References
 

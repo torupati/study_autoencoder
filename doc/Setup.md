@@ -64,11 +64,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 3. Set up the environment:
 
 ```bash
-# Create virtual environment with Python 3.9+
+# Create virtual environment with Python 3.13
 make install
 
 # Or manually:
-uv venv --python 3.9
+uv venv --python 3.13
 uv sync
 ```
 

@@ -14,7 +14,7 @@ class GrayscaleImage128Dataset(Dataset):
     Dataset for 128x128 grayscale images
     """
 
-    def __init__(self, image_dir: str, transform: Optional[transforms.Compose] = None):
+    def __init__(self, image_dir: str, transform: transforms.Compose | None = None):
         """
         Args:
             image_dir: Directory containing images

@@ -6,7 +6,7 @@ from typing import Any, Optional
 import torch
 
 
-def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> Optional[dict[str, Any]]:
+def load_checkpoint(ckpt_path: str, logger: logging.Logger) -> dict[str, Any] | None:
     """Load model checkpoint from file.
 
     Args:
